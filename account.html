@@ -1,0 +1,204 @@
+<div class="main-content" id="account-content" style="display: none;">
+    <div class="content-header">
+        <h2 id="account-title">Hesabınıza Giriş Yapın</h2>
+        <p>NeydiKi dünyaya katılın</p>
+    </div>
+    
+    <div class="auth-forms">
+        <!-- Giriş Formu -->
+        <div id="login-account-form" class="auth-form active">
+            <div class="form-group input-with-icon">
+                <label for="account-username">
+                    <i class="fas fa-user"></i>
+                    Kullanıcı Adı veya E-posta
+                </label>
+                <input type="text" id="account-username" placeholder="Kullanıcı adınız veya e-posta" value="test">
+            </div>
+            
+            <div class="form-group input-with-icon">
+                <label for="account-password">
+                    <i class="fas fa-lock"></i>
+                    Şifre
+                </label>
+                <input type="password" id="account-password" placeholder="Şifreniz" value="test123">
+            </div>
+            
+            <button class="submit-btn full-width" id="account-login-btn">
+                <i class="fas fa-sign-in-alt"></i>
+                Giriş Yap
+            </button>
+            
+            <div class="auth-switch">
+                Hesabın yok mu? 
+                <span class="switch-auth" data-form="register">Kayıt Ol</span>
+            </div>
+        </div>
+
+        <!-- Kayıt Formu -->
+        <div id="register-account-form" class="auth-form">
+            <div class="age-warning" id="age-warning" style="display: none;">
+                <i class="fas fa-exclamation-triangle"></i>
+                <span>15 yaşından küçükler platformu kullanamaz</span>
+            </div>
+            
+            <div class="form-group input-with-icon">
+                <label for="register-email">
+                    <i class="fas fa-envelope"></i>
+                    E-posta
+                </label>
+                <input type="email" id="register-email" placeholder="E-posta adresiniz" value="test@neydiki.com">
+            </div>
+            
+            <div class="form-group input-with-icon">
+                <label for="register-username">
+                    <i class="fas fa-user"></i>
+                    Kullanıcı Adı
+                </label>
+                <input type="text" id="register-username" placeholder="Kullanıcı adınız" value="test">
+            </div>
+            
+            <div class="form-group input-with-icon">
+                <label for="register-password">
+                    <i class="fas fa-lock"></i>
+                    Şifre
+                </label>
+                <input type="password" id="register-password" placeholder="Şifreniz (en az 6 karakter)" value="test123">
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="register-firstname">
+                        <i class="fas fa-id-card"></i>
+                        Ad
+                    </label>
+                    <input type="text" id="register-firstname" placeholder="Adınız" value="Test">
+                </div>
+                <div class="form-group">
+                    <label for="register-lastname">
+                        <i class="fas fa-id-card"></i>
+                        Soyad
+                    </label>
+                    <input type="text" id="register-lastname" placeholder="Soyadınız" value="Kullanıcı">
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="register-birthdate">
+                    <i class="fas fa-birthday-cake"></i>
+                    Doğum Tarihi
+                </label>
+                <div class="birthdate-inputs">
+                    <select id="register-birthday">
+                        <option value="">Gün</option>
+                    </select>
+                    <select id="register-birthmonth">
+                        <option value="">Ay</option>
+                    </select>
+                    <select id="register-birthyear">
+                        <option value="">Yıl</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="register-gender">
+                    <i class="fas fa-venus-mars"></i>
+                    Cinsiyet
+                </label>
+                <select id="register-gender">
+                    <option value="">Seçiniz</option>
+                    <option value="male">Erkek</option>
+                    <option value="female">Kadın</option>
+                    <option value="other">Diğer</option>
+                    <option value="prefer_not_to_say">Belirtmek İstemiyorum</option>
+                </select>
+            </div>
+            
+            <button class="submit-btn full-width" id="account-register-btn">
+                <i class="fas fa-user-plus"></i>
+                Kayıt Ol
+            </button>
+            
+            <div class="auth-switch">
+                Zaten hesabın var mı? 
+                <span class="switch-auth" data-form="login">Giriş Yap</span>
+            </div>
+        </div>
+
+        <!-- Hesap Bilgileri -->
+        <div id="account-info" class="account-info" style="display: none;">
+            <!-- Profil Header -->
+            <div class="account-header">
+                <div class="account-avatar">
+                    <div class="user-avatar large" id="account-avatar"></div>
+                </div>
+                <div class="account-details">
+                    <h3 id="account-fullname">Test Kullanıcı</h3>
+                    <p id="account-email">test@neydiki.com</p>
+                    <p id="account-age">
+                        <i class="fas fa-birthday-cake"></i>
+                        <span id="account-age-text">25 yaşında</span>
+                    </p>
+                    <p class="member-since">
+                        <i class="fas fa-calendar-check"></i>
+                        Üyelik: <span id="member-since">Ocak 2024</span>
+                    </p>
+                </div>
+            </div>
+            
+            <!-- İstatistikler -->
+            <div class="account-stats">
+                <div class="account-stat">
+                    <i class="fas fa-images"></i>
+                    <strong id="account-posts">0</strong>
+                    <span>Gönderi</span>
+                </div>
+                <div class="account-stat">
+                    <i class="fas fa-heart"></i>
+                    <strong id="account-likes">0</strong>
+                    <span>Beğeni</span>
+                </div>
+                <div class="account-stat">
+                    <i class="fas fa-calendar-day"></i>
+                    <strong id="account-days">1</strong>
+                    <span>Gündür üye</span>
+                </div>
+            </div>
+            
+            <!-- Hesap İşlemleri -->
+            <div class="account-actions">
+                <button class="account-btn secondary" id="edit-account-btn">
+                    <i class="fas fa-edit"></i>
+                    Bilgilerimi Düzenle
+                </button>
+                <button class="account-btn primary" id="upgrade-premium-btn">
+                    <i class="fas fa-crown"></i>
+                    Premium Yükselt
+                </button>
+                <button class="account-btn danger" id="logout-btn">
+                    <i class="fas fa-sign-out-alt"></i>
+                    Çıkış Yap
+                </button>
+            </div>
+            
+            <!-- Gönderi Yönetimi -->
+            <div class="account-posts-section">
+                <h3 class="section-title">
+                    <i class="fas fa-photo-video"></i>
+                    Gönderi Yönetimi
+                </h3>
+                
+                <div class="post-management-actions">
+                    <button class="action-btn primary" id="add-new-post-btn">
+                        <i class="fas fa-plus"></i>
+                        Yeni Gönderi Ekle
+                    </button>
+                </div>
+                
+                <div class="account-posts-grid" id="account-posts-grid">
+                    <!-- Gönderiler buraya eklenecek -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
