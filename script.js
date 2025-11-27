@@ -66,10 +66,10 @@ function closeModal(modal) {
 }
 
 function updatePageTitle(title) {
-    document.title = `${title} - NeydiKi Social`;
+    document.title = `${title} - NeydiKi?`;
     
     // Ana sayfa ise sayfayı en üste kaydır
-    if (title === 'Ana Sayfa') {
+    if (title === '') {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 }
@@ -241,4 +241,5 @@ function checkLayout() {
 window.addEventListener('resize', checkLayout);
 
 // Sayfa yüklendiğinde layout'u kontrol et
+
 document.addEventListener('DOMContentLoaded', checkLayout);
