@@ -376,87 +376,70 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function handleLogin() {
-        const username = document.getElementById('account-username')?.value;
-        const password = document.getElementById('account-password')?.value;
-        
-        if (!username || !password) {
-            showNotification('Kullanıcı adı ve şifre gerekli', 'error');
-            return;
-        }
 
-        // Basit giriş işlemi - gerçek uygulamada sunucu doğrulaması yapılmalı
-        const user = { 
-            username: username, 
-            email: `${username}@neydiki.com`, 
-            firstname: username,
-            lastname: 'Kullanıcı',
-            fullname: username,
-            password: password,
-            joinDate: new Date().toISOString()
-        };
-        
-        try {
-            localStorage.setItem('currentUser', JSON.stringify(user));
-            updateUI(user);
-            showNotification('Giriş başarılı! Hoş geldiniz!', 'success');
-        } catch (error) {
-            console.error('Giriş yapılırken hata:', error);
-            showNotification('Giriş yapılırken bir hata oluştu!', 'error');
-        }
+    const email = document.getElementById('account-username')?.value;
+    const password = document.getElementById('account-password')?.value;
+
+    // Alanlar boş mu kontrol et
+    if (!email || !password) {
+        showNotification('Lütfen e-posta ve şifrenizi girin.', 'error');
+        return;
+    }
+
+    // Firebase ile Giriş Yap
+    auth.signInWithEmailAndPassword(email, password)
+        .then(() => {
+            showNotification('Giriş başarılı! Yönlendiriliyorsunuz...', 'success');
+            // Sayfa yenilemeye gerek yok, alttaki kod (kontrolcü) otomatik yakalayacak
+        })
+        .catch((error) => {
+            console.error(error);
+            showNotification('Giriş başarısız. E-posta veya şifre yanlış.', 'error');
+        });
+
     }
 
     function handleRegister() {
-        const email = document.getElementById('register-email')?.value;
-        const username = document.getElementById('register-username')?.value;
-        const password = document.getElementById('register-password')?.value;
-        const firstname = document.getElementById('register-firstname')?.value;
-        const lastname = document.getElementById('register-lastname')?.value;
-        const day = document.getElementById('register-birthday')?.value;
-        const month = document.getElementById('register-birthmonth')?.value;
-        const year = document.getElementById('register-birthyear')?.value;
-        const gender = document.getElementById('register-gender')?.value;
-        
-        // Validasyon
-        if (!email || !username || !password || !firstname || !lastname || !day || !month || !year) {
-            showNotification('Tüm zorunlu alanları doldurun', 'error');
-            return;
-        }
-        
-        if (password.length < 6) {
-            showNotification('Şifre en az 6 karakter olmalıdır', 'error');
-            return;
-        }
+    
+    const email = document.getElementById('register-email')?.value;
+    const password = document.getElementById('register-password')?.value;
+    const username = document.getElementById('register-username')?.value;
+    const firstname = document.getElementById('register-firstname')?.value;
+    const lastname = document.getElementById('register-lastname')?.value;
+    
+    // Doğrulama: Alanlar boş mu?
+    if (!email || !password || !username) {
+        showNotification('Lütfen zorunlu alanları doldurun.', 'error');
+        return;
+    }
 
-        // Yaş kontrolü
-        const birthDate = new Date(year, month - 1, day);
-        const age = calculateAge(birthDate);
-        
-        if (age < 15) {
-            showNotification('15 yaşından küçükler platformu kullanamaz', 'error');
-            return;
-        }
-
-        const user = { 
-            username: username, 
-            email: email, 
-            firstname: firstname,
-            lastname: lastname,
-            fullname: `${firstname} ${lastname}`,
-            password: password,
-            birthdate: birthDate.toISOString(),
-            gender: gender,
-            age: age,
-            joinDate: new Date().toISOString()
-        };
-        
-        try {
-            localStorage.setItem('currentUser', JSON.stringify(user));
-            updateUI(user);
-            showNotification('Kayıt başarılı! NeydiKi dünyaya hoş geldiniz!', 'success');
-        } catch (error) {
-            console.error('Kayıt olurken hata:', error);
-            showNotification('Kayıt olurken bir hata oluştu!', 'error');
-        }
+    // 1. Firebase'e Kayıt Et (Kullanıcı oluştur)
+    auth.createUserWithEmailAndPassword(email, password)
+        .then((userCredential) => {
+            // Kayıt başarılı oldu, şimdi detayları veritabanına yazalım
+            // 2. Veritabanına Yaz
+            return db.collection("users").doc(userCredential.user.uid).set({
+                username: username,
+                email: email,
+                fullname: `${firstname} ${lastname}`,
+                uid: userCredential.user.uid,
+                joinDate: new Date().toISOString()
+            });
+        })
+        .then(() => {
+            // Her şey tamam!
+            showNotification('Kayıt başarılı! Hoş geldiniz.', 'success');
+        })
+        .catch((error) => {
+            console.error(error);
+            // Hata mesajını Türkçeleştirip gösterelim
+            let mesaj = error.message;
+            if(error.code === 'auth/email-already-in-use') mesaj = 'Bu e-posta zaten kullanılıyor.';
+            if(error.code === 'auth/weak-password') mesaj = 'Şifre çok zayıf (en az 6 karakter).';
+            
+            showNotification('Kayıt hatası: ' + mesaj, 'error');
+        });
+      
     }
 
     function handleAddNewPost() {
@@ -590,4 +573,46 @@ function getRandomGradient() {
         'linear-gradient(135deg, #fccb90 0%, #d57eeb 100%)'
     ];
     return gradients[Math.floor(Math.random() * gradients.length)];
+}
+
+
+
+// --- OTURUM KONTROLCÜSÜ ---
+// Kullanıcı giriş veya çıkış yaptığında bu kod otomatik çalışır
+auth.onAuthStateChanged((user) => {
+    if (user) {
+        // Biri giriş yapmış! Bilgilerini veritabanından çekelim
+        db.collection("users").doc(user.uid).get().then((doc) => {
+            if (doc.exists) {
+                const userData = doc.data();
+                
+                // Bilgileri tarayıcıya (localStorage) da kaydedelim ki diğer sayfalar görsün
+                localStorage.setItem('currentUser', JSON.stringify(userData));
+                
+                // Ekranı güncelle (Profil resmini vs. göster)
+                // (Bu fonksiyon zaten kodunda var, onu çağırıyoruz)
+                if (typeof updateUI === 'function') {
+                    updateUI(userData);
+                }
+            }
+        });
+    } else {
+        // Kimse yok veya çıkış yapılmış
+        localStorage.removeItem('currentUser');
+        // Giriş ekranını göster
+        if (typeof showLoginForm === 'function') {
+            showLoginForm();
+        }
+    }
+});
+
+// Çıkış Yap butonu için ayar
+const logoutBtn = document.getElementById('logout-btn');
+if (logoutBtn) {
+    logoutBtn.addEventListener('click', () => {
+        auth.signOut().then(() => {
+            showNotification('Başarıyla çıkış yapıldı.', 'info');
+            window.location.reload(); // Sayfayı yenilemek en temizidir
+        });
+    });
 }
