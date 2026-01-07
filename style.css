@@ -42,6 +42,7 @@ body {
     margin: 24px auto; 
     padding: 0 16px;
     min-height: calc(100vh - 200px);
+    transition: padding-left 0.3s ease; /* Yumuşak geçiş */
 }
 
 .content-header { 
@@ -68,6 +69,7 @@ body {
     max-width: 1400px;
     margin: 0 auto;
     position: relative;
+    justify-content: center; /* İçeriği genel olarak ortalar */
 }
 
 .home-main-content {
@@ -83,16 +85,18 @@ body {
     width: 100%;
 }
 
-/* GÖRSEL KARTLARI */
+/* GÖRSEL KARTLARI - GÜNCELLENDİ */
 .image-card {
     background-color: var(--surface);
     border-radius: 16px;
     overflow: hidden;
     box-shadow: var(--shadow);
     transition: all 0.3s ease;
-    margin-bottom: 20px;
+    
+    /* Kartları ortala ve genişliğini sınırla */
     width: 100%;
-    max-width: 100%;
+    max-width: 600px;      
+    margin: 0 auto 20px auto; 
 }
 
 .image-card:hover {
@@ -386,7 +390,7 @@ body {
     transform: scale(1.05);
 }
 
-/* FİLTRE SİSTEMİ - SAĞ TARAF */
+/* FİLTRE SİSTEMİ - GÜNCELLENMİŞ VE OPTİMİZE EDİLMİŞ VERSİYON */
 .filters-container {
     display: flex;
     align-items: center;
@@ -398,7 +402,8 @@ body {
     width: 320px;
     background: var(--surface);
     border-radius: 20px;
-    padding: 25px;
+    /* Sağ padding azaltılarak scrollbar'a yer açıldı */
+    padding: 25px 10px 25px 25px;
     box-shadow: var(--shadow-strong);
     border: 1px solid var(--border);
     position: sticky;
@@ -406,6 +411,43 @@ body {
     max-height: calc(100vh - 160px);
     overflow-y: auto;
     flex-shrink: 0;
+    scroll-behavior: smooth;
+    
+    /* Firefox için scrollbar ayarları - GÜNCELLENDİ */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 149, 246, 0.5) transparent; /* Şeffaflık eklendi */
+}
+
+/* Filtre Sidebar Özel Scrollbar - DÜZELTİLDİ */
+.filters-sidebar::-webkit-scrollbar {
+    width: 6px; /* İnce ve zarif */
+}
+
+/* OKLARI VE BUTONLARI KESİN OLARAK GİZLE */
+.filters-sidebar::-webkit-scrollbar-button {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    background: transparent;
+}
+
+.filters-sidebar::-webkit-scrollbar-track {
+    background: transparent;
+    /* ÖNEMLİ: Boşluk azaltıldı (15px -> 5px). Böylece scrollbar dışa açıldı ama radius'u kırmadı */
+    margin: 5px 0; 
+}
+
+.filters-sidebar::-webkit-scrollbar-thumb {
+    /* %50 opaklık ile mavi - daha soft */
+    background-color: rgba(0, 149, 246, 0.5); 
+    border-radius: 10px;       /* Tam yuvarlak */
+    border: 1px solid transparent; 
+    background-clip: content-box;
+    transition: background-color 0.3s ease;
+}
+
+.filters-sidebar::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(0, 149, 246, 0.8); /* Hover durumunda netleşir */
 }
 
 .filters-header {
@@ -415,6 +457,8 @@ body {
     margin-bottom: 25px;
     padding-bottom: 20px;
     border-bottom: 2px solid var(--border);
+    /* Scrollbar'ın altına girmemesi için sağ boşluk */
+    padding-right: 15px;
 }
 
 .filters-title {
@@ -428,6 +472,7 @@ body {
 
 .filter-group {
     margin-bottom: 25px;
+    padding-right: 15px; /* İçerik sağ boşluk */
 }
 
 .filter-group-title {
@@ -501,6 +546,7 @@ body {
     background: var(--primary-light);
     border-radius: 15px;
     border: 1px solid var(--primary);
+    margin-right: 15px; /* Kutu sağ boşluk */
 }
 
 .filter-tags {
@@ -544,6 +590,7 @@ body {
     display: flex;
     gap: 12px;
     margin-top: 25px;
+    padding-right: 15px; /* Butonlar sağ boşluk */
 }
 
 .filter-btn {
@@ -688,7 +735,7 @@ body {
 .close-btn:hover { 
     color: var(--text); 
     background-color: var(--primary-light); 
-    transform: rotate(90deg);
+    /* DÖNME ANİMASYONU KALDIRILDI */
 }
 .form-group { margin-bottom: 16px; }
 .form-group label { display: block; margin-bottom: 6px; font-size: 14px; font-weight: 500; color: var(--text); }
@@ -738,35 +785,31 @@ body {
     font-size: 14px;
 }
 
-/* SCROLLBAR */
+/* GENEL SCROLLBAR */
+/* filters-sidebar buradan çıkarıldı, çünkü yukarıda özel stiller eklendi */
 .comments-container::-webkit-scrollbar,
-.filters-sidebar::-webkit-scrollbar,
 .modal-content::-webkit-scrollbar {
     width: 8px;
 }
 
 .comments-container::-webkit-scrollbar-track,
-.filters-sidebar::-webkit-scrollbar-track,
 .modal-content::-webkit-scrollbar-track {
     background: var(--background);
     border-radius: 4px;
 }
 
 .comments-container::-webkit-scrollbar-thumb,
-.filters-sidebar::-webkit-scrollbar-thumb,
 .modal-content::-webkit-scrollbar-thumb {
     background: var(--primary);
     border-radius: 4px;
 }
 
 .comments-container::-webkit-scrollbar-thumb:hover,
-.filters-sidebar::-webkit-scrollbar-thumb:hover,
 .modal-content::-webkit-scrollbar-thumb:hover {
     background: #0081d6;
 }
 
 .comments-container,
-.filters-sidebar,
 .modal-content {
     scrollbar-width: thin;
     scrollbar-color: var(--primary) var(--background);
@@ -1156,5 +1199,12 @@ body {
     
     .filters-sidebar.active ~ .floating-nav {
         transform: translateX(-50%) translateY(20px);
+    }
+}
+
+/* NAVBAR İÇİN BOŞLUK AYARI (Masaüstü/Tablet - Navbar solda olduğunda) */
+@media (min-width: 1024px) {
+    .main-content {
+        padding-left: 160px; /* Navbar (100px) + Sol Offset (40px) + Güvenli Boşluk (20px) */
     }
 }
