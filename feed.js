@@ -1,6 +1,6 @@
-// feed.js - KALICI ZOOM, TEK PARMAK GEZİNME VE PINCH DÜZELTMESİ
+// feed.js - PERFORMANCE + ANIMATIONS + FULL ZOOM RESTORED
 document.addEventListener('DOMContentLoaded', function() {
-    console.log("Feed.js: Sistem Başlatıldı");
+    console.log("Feed.js: Sistem Başlatıldı - Zoom Sistemi Onarıldı");
 
     const imageFeed = document.getElementById('image-feed');
     const sharePostBtn = document.getElementById('share-post-btn');
@@ -8,12 +8,18 @@ document.addEventListener('DOMContentLoaded', function() {
     const imageUploadArea = document.getElementById('image-upload-area');
     const imagePreview = document.getElementById('image-preview');
     
+    // --- STATE MANAGEMENT ---
+    let rawPosts = [];          
+    let lastVisibleDoc = null;  
+    let isFetching = false;     
+    let isAllFetched = false;   
+    let feedObserver = null;    
+    let viewMode = 'paginated'; 
+
     let selectedImage = null;
     let openDiscussionIds = new Set(); 
-    let justCommentedPostId = null; // YENİ: Son yorum yapılan gönderi takibi
+    let justCommentedPostId = null;
 
-    // --- GLOBAL DEĞİŞKENLER ---
-    let rawPosts = []; 
     let activeFilters = {
         sort: 'newest',
         mediaType: [],
@@ -22,116 +28,212 @@ document.addEventListener('DOMContentLoaded', function() {
         search: ''
     };
 
-    // --- YARDIMCI: GÖRSEL SIKIŞTIRMA ---
     function compressImage(base64Str, maxWidth = 1200, maxHeight = 1200) {
         return new Promise((resolve) => {
             let img = new Image();
             img.src = base64Str;
             img.onload = () => {
-                let canvas = document.createElement('canvas');
+                const canvas = document.createElement('canvas');
                 let width = img.width;
                 let height = img.height;
-
                 if (width > height) {
-                    if (width > maxWidth) {
-                        height *= maxWidth / width;
-                        width = maxWidth;
-                    }
+                    if (width > maxWidth) { height *= maxWidth / width; width = maxWidth; }
                 } else {
-                    if (height > maxHeight) {
-                        width *= maxHeight / height;
-                        height = maxHeight;
-                    }
+                    if (height > maxHeight) { width *= maxHeight / height; height = maxHeight; }
                 }
-                
                 canvas.width = width;
                 canvas.height = height;
-                let ctx = canvas.getContext('2d');
+                const ctx = canvas.getContext('2d');
                 ctx.imageSmoothingEnabled = true;
-                ctx.imageSmoothingQuality = 'high';
                 ctx.drawImage(img, 0, 0, width, height);
                 resolve(canvas.toDataURL('image/jpeg', 0.8)); 
             };
-            img.onerror = (err) => {
-                console.error("Görsel işleme hatası:", err);
-                resolve(base64Str);
-            };
+            img.onerror = () => resolve(base64Str);
         });
     }
 
-    // --- 1. VERİTABANI BAĞLANTISI ---
+    // --- 1. BAŞLATMA ---
     function initFeed() {
         if (!imageFeed || !window.db) return;
 
-        if (imageFeed.children.length === 0) {
-            imageFeed.innerHTML = `
-                <div class="feed-loading">
-                    <div class="feed-spinner"></div>
-                    <p>Akış güncelleniyor...</p>
-                </div>
-            `;
-        }
+        // İlk açılış animasyonu
+        imageFeed.innerHTML = `
+            <div class="feed-loading" id="initial-loader">
+                <div class="feed-spinner"></div>
+                <p>Akış güncelleniyor...</p>
+            </div>
+        `;
 
-        window.db.collection("posts")
-            .orderBy("timestamp", "desc")
-            .onSnapshot((snapshot) => {
-                rawPosts = snapshot.docs.map(doc => {
-                    const data = doc.data();
-                    return { ...data, id: doc.id };
-                });
-                renderFilteredFeed();
-            }, (error) => {
-                console.error("Veri çekme hatası:", error);
-                if (imageFeed.querySelector('.feed-loading')) {
-                    imageFeed.innerHTML = '<div class="empty-state"><i class="fas fa-wifi"></i><p>Bağlantı sorunu.</p></div>';
+        fetchPosts(true);
+    }
+
+    // --- 2. SENTINEL (Scroll Gözlemcisi) ---
+    function createSentinel() {
+        const oldSentinel = document.getElementById('feed-sentinel');
+        if (oldSentinel) oldSentinel.remove();
+
+        const sentinel = document.createElement('div');
+        sentinel.id = 'feed-sentinel';
+        sentinel.innerHTML = '<div class="feed-spinner small"></div>'; 
+        imageFeed.appendChild(sentinel);
+
+        const options = {
+            root: null,
+            rootMargin: '200px',
+            threshold: 0.1
+        };
+
+        feedObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting && !isFetching && !isAllFetched && viewMode === 'paginated') {
+                    fetchPosts(false);
                 }
             });
+        }, options);
+
+        feedObserver.observe(sentinel);
     }
 
-    function getPostById(postId) {
-        return rawPosts.find(p => p.id === postId);
+    // --- 3. VERİ ÇEKME MOTORU ---
+    async function fetchPosts(isInitial = false) {
+        if (isFetching) return;
+        isFetching = true;
+
+        const sentinel = document.getElementById('feed-sentinel');
+        if (sentinel) sentinel.style.opacity = '1';
+
+        try {
+            let query = window.db.collection("posts").orderBy("timestamp", "desc");
+
+            if (viewMode === 'paginated') {
+                query = query.limit(5);
+                if (!isInitial && lastVisibleDoc) {
+                    query = query.startAfter(lastVisibleDoc);
+                }
+            }
+
+            const snapshot = await query.get();
+
+            const initialLoader = document.getElementById('initial-loader');
+            if (initialLoader) initialLoader.remove();
+
+            if (snapshot.empty) {
+                isAllFetched = true;
+                if (sentinel) sentinel.style.display = 'none';
+                
+                if (isInitial && rawPosts.length === 0) {
+                    imageFeed.innerHTML = `
+                        <div class="empty-state">
+                            <i class="fas fa-camera"></i>
+                            <h3>Akış Boş</h3>
+                            <p>İlk gönderiyi sen paylaş!</p>
+                        </div>`;
+                }
+                isFetching = false;
+                return;
+            }
+
+            lastVisibleDoc = snapshot.docs[snapshot.docs.length - 1];
+            const newPosts = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+
+            if (isInitial) {
+                rawPosts = newPosts;
+                createSentinel(); 
+            } else {
+                const existingIds = new Set(rawPosts.map(p => p.id));
+                const uniqueNewPosts = newPosts.filter(p => !existingIds.has(p.id));
+                rawPosts = [...rawPosts, ...uniqueNewPosts];
+            }
+
+            renderBatch(isInitial ? rawPosts : newPosts, isInitial);
+            
+        } catch (error) {
+            console.error("Veri hatası:", error);
+            const initialLoader = document.getElementById('initial-loader');
+            if (initialLoader) initialLoader.remove();
+            showNotification('Veriler yüklenemedi.', 'error');
+        } finally {
+            isFetching = false;
+            if (sentinel) sentinel.style.opacity = '0';
+        }
     }
 
-    // --- 3. AKILLI RENDER MOTORU ---
-    function renderFilteredFeed() {
-        if (!imageFeed) return;
-
-        let processedPosts = [...rawPosts];
+    function renderBatch(postsToRender, clearContainer = false) {
         const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+        const sentinel = document.getElementById('feed-sentinel');
+        const fragment = document.createDocumentFragment();
 
-        // FİLTRELER
+        postsToRender.forEach(post => {
+            if (!checkPostFilter(post)) return;
+            const el = createPostElement(post, currentUser);
+            fragment.appendChild(el);
+        });
+
+        if (clearContainer) {
+            Array.from(imageFeed.children).forEach(child => {
+                if (child.id !== 'feed-sentinel') child.remove();
+            });
+        }
+
+        if (sentinel) {
+            imageFeed.insertBefore(fragment, sentinel);
+        } else {
+            imageFeed.appendChild(fragment);
+        }
+    }
+
+    function checkPostFilter(post) {
         if (activeFilters.search) {
-            const term = activeFilters.search;
-            processedPosts = processedPosts.filter(post => 
-                (post.caption && post.caption.toLowerCase().includes(term)) ||
-                (post.username && post.username.toLowerCase().includes(term))
-            );
+            const term = activeFilters.search.toLowerCase();
+            const textMatch = (post.caption && post.caption.toLowerCase().includes(term)) ||
+                              (post.username && post.username.toLowerCase().includes(term));
+            if (!textMatch) return false;
         }
-
         if (activeFilters.mediaType.length > 0) {
-            processedPosts = processedPosts.filter(post => {
-                const hasImage = post.imageType !== 'none' && post.image;
-                if (activeFilters.mediaType.includes('image') && hasImage) return true;
-                if (activeFilters.mediaType.includes('text') && !hasImage) return true;
-                return false;
-            });
+            const hasImage = post.imageType !== 'none' && post.image;
+            if (activeFilters.mediaType.includes('image') && !hasImage) return false;
+            if (activeFilters.mediaType.includes('text') && hasImage) return false;
         }
-
         if (activeFilters.dateStart || activeFilters.dateEnd) {
-            processedPosts = processedPosts.filter(post => {
-                const postDate = new Date(post.timestamp);
-                if (activeFilters.dateStart && postDate < activeFilters.dateStart) return false;
-                if (activeFilters.dateEnd) {
-                    const endDateFixed = new Date(activeFilters.dateEnd);
-                    endDateFixed.setHours(23, 59, 59, 999);
-                    if (postDate > endDateFixed) return false;
-                }
-                return true;
-            });
+            const postDate = new Date(post.timestamp);
+            if (activeFilters.dateStart && postDate < activeFilters.dateStart) return false;
+            if (activeFilters.dateEnd) {
+                const endDateFixed = new Date(activeFilters.dateEnd);
+                endDateFixed.setHours(23, 59, 59, 999);
+                if (postDate > endDateFixed) return false;
+            }
+        }
+        return true;
+    }
+
+    window.updateFeedFilters = async function(newFilters) {
+        activeFilters = { ...activeFilters, ...newFilters };
+        const requiresFullData = activeFilters.search !== '' || 
+                                 activeFilters.sort === 'most-liked' || 
+                                 activeFilters.sort === 'most-commented' ||
+                                 activeFilters.sort === 'oldest';
+
+        imageFeed.innerHTML = `
+            <div class="feed-loading">
+                <div class="feed-spinner"></div>
+                <p>Sonuçlar filtreleniyor...</p>
+            </div>
+        `;
+
+        if (requiresFullData && viewMode === 'paginated') {
+            viewMode = 'all';
+            const snapshot = await window.db.collection("posts").orderBy("timestamp", "desc").get();
+            rawPosts = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+            isAllFetched = true;
         }
 
-        // --- SIRALAMA GÜNCELLEMESİ ---
-        processedPosts.sort((a, b) => {
+        sortAndRenderAll();
+    };
+
+    function sortAndRenderAll() {
+        let processed = rawPosts.filter(checkPostFilter);
+
+        processed.sort((a, b) => {
             const dateA = new Date(a.timestamp);
             const dateB = new Date(b.timestamp);
             const likesA = a.likes || 0;
@@ -146,135 +248,41 @@ document.addEventListener('DOMContentLoaded', function() {
                 case 'hybrid': 
                     const scoreA = likesA + commentsA;
                     const scoreB = likesB + commentsB;
-                    if (scoreB === scoreA) return dateB - dateA;
                     return scoreB - scoreA;
                 case 'newest': default: return dateB - dateA;
             }
         });
 
-        // DOM GÜNCELLEME
-        const loading = imageFeed.querySelector('.feed-loading');
-        if (loading) loading.remove();
+        imageFeed.innerHTML = ''; 
+        const sentinel = document.getElementById('feed-sentinel');
+        if(sentinel) sentinel.remove(); 
 
-        const currentElements = Array.from(imageFeed.children).filter(el => el.classList.contains('image-card'));
-        const newIds = processedPosts.map(p => p.id);
-        currentElements.forEach(el => {
-            if (!newIds.includes(el.dataset.postId)) el.remove();
-        });
-
-        if (processedPosts.length === 0) {
-            if (!imageFeed.querySelector('.empty-state')) {
-                imageFeed.innerHTML = `
-                    <div class="empty-state">
-                        <i class="fas fa-search"></i>
-                        <h3>Sonuç Bulunamadı</h3>
-                        <p>Seçtiğiniz filtrelere uygun gönderi yok.</p>
-                    </div>`;
-            }
+        if (processed.length === 0) {
+            imageFeed.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-search"></i>
+                    <h3>Sonuç Bulunamadı</h3>
+                    <p>Filtrelerinize uygun gönderi yok.</p>
+                </div>`;
             return;
-        } else {
-            const emptyState = imageFeed.querySelector('.empty-state');
-            if (emptyState) emptyState.remove();
         }
 
-        processedPosts.forEach((post, index) => {
-            let existingEl = imageFeed.querySelector(`.image-card[data-post-id="${post.id}"]`);
-
-            if (existingEl) {
-                updatePostElement(existingEl, post, currentUser);
-                const actualIndex = Array.from(imageFeed.children).indexOf(existingEl);
-                if (actualIndex !== index) {
-                    imageFeed.insertBefore(existingEl, imageFeed.children[index]);
-                }
-            } else {
-                const newEl = createPostElement(post, currentUser);
-                if (imageFeed.children[index]) {
-                    imageFeed.insertBefore(newEl, imageFeed.children[index]);
-                } else {
-                    imageFeed.appendChild(newEl);
-                }
-            }
+        const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+        const fragment = document.createDocumentFragment();
+        
+        processed.forEach(post => {
+            fragment.appendChild(createPostElement(post, currentUser));
         });
+
+        imageFeed.appendChild(fragment);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    // --- 4. KART GÜNCELLEME ---
-    function updatePostElement(element, post, currentUser) {
-        const isLikedByMe = post.likedBy && currentUser && post.likedBy.includes(currentUser.uid);
-        const likeBtn = element.querySelector('.like-post-btn');
-        if (likeBtn) {
-            const likeIcon = likeBtn.querySelector('i');
-            const likeCountSpan = likeBtn.querySelector('span');
-            
-            if (isLikedByMe) {
-                likeBtn.classList.add('active');
-                if(likeIcon) likeIcon.className = 'fas fa-heart';
-            } else {
-                likeBtn.classList.remove('active');
-                if(likeIcon) likeIcon.className = 'far fa-heart';
-            }
-            
-            const safeLikeCount = Math.max(0, post.likes || 0);
-            if (likeCountSpan && likeCountSpan.textContent !== safeLikeCount.toString()) {
-                likeCountSpan.textContent = safeLikeCount;
-            }
-        }
-        
-        const avatarEl = element.querySelector('.user-avatar');
-        if (avatarEl) {
-            avatarEl.style.display = 'flex';
-            avatarEl.style.alignItems = 'center';
-            avatarEl.style.justifyContent = 'center';
-            avatarEl.innerHTML = '';
-
-            let userPic = post.userProfilePic;
-            if (currentUser && post.username === currentUser.username) {
-                userPic = currentUser.profilePic;
-            }
-
-            if (userPic) {
-                avatarEl.style.backgroundImage = `url('${userPic}')`;
-                avatarEl.style.backgroundSize = 'cover';
-                avatarEl.style.backgroundPosition = 'center';
-                avatarEl.style.backgroundColor = 'transparent';
-            } else {
-                avatarEl.style.backgroundImage = 'none';
-                avatarEl.style.backgroundColor = '#e1e1e1';
-                avatarEl.innerHTML = '<i class="fas fa-user" style="color: #999; font-size: 18px;"></i>';
-            }
-        }
-
-        const commentCount = post.comments ? post.comments.length : 0;
-        const discBtn = element.querySelector('.toggle-comments-btn');
-        if (discBtn && !discBtn.innerHTML.includes(`(${commentCount})`)) {
-             discBtn.innerHTML = `<i class="far fa-comments"></i> Tartışma (${commentCount})`;
-        }
-
-        const commentsList = element.querySelector('.comments-list');
-        const commentsContainer = element.querySelector('.comments-container');
-        
-        if (commentsList && commentsContainer) {
-            const oldScrollTop = commentsContainer.scrollTop;
-            const newCommentsHTML = renderCommentsHTML(post.comments, currentUser);
-            
-            if (commentsList.innerHTML !== newCommentsHTML) {
-                commentsList.innerHTML = newCommentsHTML;
-                
-                // YENİ: Eğer bu gönderiye az önce yorum yapıldıysa en alta kaydır
-                if (justCommentedPostId === post.id) {
-                    commentsContainer.scrollTop = commentsContainer.scrollHeight;
-                    justCommentedPostId = null; // İşaretçiyi sıfırla
-                } else {
-                    commentsContainer.scrollTop = oldScrollTop;
-                }
-            }
-        }
-    }
-
-    // --- 5. YENİ KART OLUŞTURUCU ---
     function createPostElement(post, currentUser) {
         const div = document.createElement('div');
         div.className = 'image-card';
         div.setAttribute('data-post-id', post.id);
+        div.style.animation = "fadeInUp 0.5s ease backwards";
         
         const isOwnPost = currentUser && currentUser.username === post.username;
         const commentCount = post.comments ? post.comments.length : 0;
@@ -294,7 +302,7 @@ document.addEventListener('DOMContentLoaded', function() {
             contentHtml = `
                 <div class="post-media-container">
                     <div class="media-blur-bg" style="background-image: url('${post.image}')"></div>
-                    <img src="${post.image}" class="card-image" loading="lazy" alt="Gönderi görseli">
+                    <img src="${post.image}" class="card-image" loading="lazy" alt="Gönderi">
                 </div>
             `;
         }
@@ -302,7 +310,6 @@ document.addEventListener('DOMContentLoaded', function() {
         let avatarStyle = 'display: flex; align-items: center; justify-content: center;';
         let avatarContent = '';
         let userPic = post.userProfilePic;
-        
         if (isOwnPost && currentUser.profilePic) userPic = currentUser.profilePic;
         
         if (userPic) {
@@ -349,46 +356,32 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
         `;
 
-        // --- TAM EKRAN TIKLAMA OLAYI ---
         const postImage = div.querySelector('.card-image');
         if (postImage && post.imageType !== 'none') {
             postImage.addEventListener('click', (e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                openFullscreenImage(post.image);
+                e.stopPropagation(); e.preventDefault(); openFullscreenImage(post.image);
             });
         }
-        // -------------------------------
-
         const delBtn = div.querySelector('.delete-post-btn');
         if(delBtn) delBtn.addEventListener('click', (e) => { e.preventDefault(); deletePost(post.id); });
-
         const likeBtn = div.querySelector('.like-post-btn');
         if(likeBtn) likeBtn.addEventListener('click', (e) => { e.preventDefault(); togglePostLike(post.id); });
-
         const discBtn = div.querySelector('.toggle-comments-btn');
         const discSection = div.querySelector('.discussion-section');
         const commentInput = div.querySelector('.comment-input');
-
         if(openDiscussionIds.has(post.id)) discSection.classList.add('expanded');
-
         if(discBtn) {
             discBtn.addEventListener('click', (e) => {
                 e.preventDefault();
                 const isExpanded = discSection.classList.contains('expanded');
                 if(!isExpanded) {
-                    discSection.classList.add('expanded');
-                    openDiscussionIds.add(post.id);
-                    setTimeout(() => {
-                        if(commentInput) commentInput.focus({ preventScroll: true });
-                    }, 300);
+                    discSection.classList.add('expanded'); openDiscussionIds.add(post.id);
+                    setTimeout(() => { if(commentInput) commentInput.focus({ preventScroll: true }); }, 300);
                 } else {
-                    discSection.classList.remove('expanded');
-                    openDiscussionIds.delete(post.id);
+                    discSection.classList.remove('expanded'); openDiscussionIds.delete(post.id);
                 }
             });
         }
-
         const sendBtn = div.querySelector('.inline-submit-btn');
         const handleSend = () => { sendComment(post.id, commentInput.value); commentInput.value = ''; };
         if(sendBtn) sendBtn.addEventListener('click', (e) => { e.preventDefault(); handleSend(); });
@@ -398,138 +391,107 @@ document.addEventListener('DOMContentLoaded', function() {
         cList.addEventListener('click', (e) => {
             const delCommentBtn = e.target.closest('.comment-delete-btn');
             if(delCommentBtn) { e.preventDefault(); deleteComment(post.id, delCommentBtn.dataset.id); }
-
             const likeCommentBtn = e.target.closest('.comment-like-btn');
             if(likeCommentBtn) { e.preventDefault(); toggleCommentLike(post.id, likeCommentBtn.dataset.id); }
         });
-
         return div;
     }
 
     function renderCommentsHTML(comments, currentUser) {
         if (!comments || comments.length === 0) return '<div style="text-align:center; color:var(--text-light); font-size:13px; padding:20px;">Henüz yorum yok. İlk yorumu sen yap!</div>';
-        
-        // Kronolojik sıra için .reverse() kaldırıldı.
         return comments.map(c => {
             const isMyComment = currentUser && currentUser.username === c.username;
             const isLiked = c.likedBy && currentUser && c.likedBy.includes(currentUser.uid);
             const likeClass = isLiked ? 'active' : '';
             const likeIcon = isLiked ? 'fas' : 'far';
             const likeCount = c.likes || 0;
-
             return `
                 <div class="comment-item ${isMyComment ? 'mine' : ''}">
                     <div class="comment-header"><span class="comment-user">${c.username}</span></div>
                     <div class="comment-text">${c.text}</div>
                     <div class="comment-footer">
-                        <div class="footer-left">
-                            <button class="comment-like-btn ${likeClass}" data-id="${c.id}">
-                                <i class="${likeIcon} fa-heart"></i> ${likeCount > 0 ? likeCount : ''}
-                            </button>
-                        </div>
-                        <div class="footer-right">
-                            ${isMyComment ? `<button class="comment-delete-btn" data-id="${c.id}"><i class="fas fa-trash"></i></button>` : ''}
-                            <span class="comment-time">${timeAgo(c.timestamp)}</span>
-                        </div>
+                        <div class="footer-left"><button class="comment-like-btn ${likeClass}" data-id="${c.id}"><i class="${likeIcon} fa-heart"></i> ${likeCount > 0 ? likeCount : ''}</button></div>
+                        <div class="footer-right">${isMyComment ? `<button class="comment-delete-btn" data-id="${c.id}"><i class="fas fa-trash"></i></button>` : ''}<span class="comment-time">${timeAgo(c.timestamp)}</span></div>
                     </div>
                 </div>`;
         }).join('');
     }
 
-    window.updateFeedFilters = function(newFilters) {
-        activeFilters = { ...activeFilters, ...newFilters };
-        renderFilteredFeed();
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    };
-
-    window.loadImageFeed = function() {
-        renderFilteredFeed();
-    };
-
     function togglePostLike(postId) {
-        const user = getCurrentUserOrAlert();
-        if(!user) return;
-        
-        const currentPost = getPostById(postId);
-        if(!currentPost) return;
-
+        const user = getCurrentUserOrAlert(); if(!user) return;
+        const currentPost = rawPosts.find(p => p.id === postId); if(!currentPost) return;
+        const card = document.querySelector(`.image-card[data-post-id="${postId}"]`);
+        if(card) {
+            const btn = card.querySelector('.like-post-btn'); const span = btn.querySelector('span'); const icon = btn.querySelector('i');
+            let cnt = parseInt(span.textContent) || 0;
+            if(btn.classList.contains('active')) { btn.classList.remove('active'); icon.className = 'far fa-heart'; span.textContent = Math.max(0, cnt - 1); }
+            else { btn.classList.add('active'); icon.className = 'fas fa-heart'; span.textContent = cnt + 1; }
+        }
         const ref = window.db.collection("posts").doc(postId);
-        
         if (currentPost.likedBy && currentPost.likedBy.includes(user.uid)) {
-            ref.update({ 
-                likes: firebase.firestore.FieldValue.increment(-1), 
-                likedBy: firebase.firestore.FieldValue.arrayRemove(user.uid) 
-            });
+            ref.update({ likes: firebase.firestore.FieldValue.increment(-1), likedBy: firebase.firestore.FieldValue.arrayRemove(user.uid) });
+            currentPost.likedBy = currentPost.likedBy.filter(u => u !== user.uid); currentPost.likes--;
         } else {
-            ref.update({ 
-                likes: firebase.firestore.FieldValue.increment(1), 
-                likedBy: firebase.firestore.FieldValue.arrayUnion(user.uid) 
-            });
-            showNotification('Gönderi beğenildi', 'success');
+            ref.update({ likes: firebase.firestore.FieldValue.increment(1), likedBy: firebase.firestore.FieldValue.arrayUnion(user.uid) });
+            if(!currentPost.likedBy) currentPost.likedBy = []; currentPost.likedBy.push(user.uid); currentPost.likes++;
         }
     }
 
     function toggleCommentLike(postId, commentId) {
-        const user = getCurrentUserOrAlert();
-        if(!user) return;
-
-        const currentPost = getPostById(postId);
-        if(!currentPost) return;
-        
+        const user = getCurrentUserOrAlert(); if(!user) return;
+        const currentPost = rawPosts.find(p => p.id === postId); if(!currentPost) return;
         let updatedComments = [...currentPost.comments];
-        const commentIndex = updatedComments.findIndex(c => c.id === commentId);
-        if(commentIndex === -1) return;
-        
+        const commentIndex = updatedComments.findIndex(c => c.id === commentId); if(commentIndex === -1) return;
         let comment = updatedComments[commentIndex];
-        
-        if(!comment.likedBy) comment.likedBy = [];
-        if(!comment.likes) comment.likes = 0;
-        
+        if(!comment.likedBy) comment.likedBy = []; if(!comment.likes) comment.likes = 0;
         const isLiked = comment.likedBy.includes(user.uid);
-        
-        if(isLiked) {
-            if (comment.likes > 0) comment.likes--;
-            comment.likedBy = comment.likedBy.filter(id => id !== user.uid);
-        } else {
-            comment.likes++;
-            comment.likedBy.push(user.uid);
-        }
-        
+        if(isLiked) { if (comment.likes > 0) comment.likes--; comment.likedBy = comment.likedBy.filter(id => id !== user.uid); }
+        else { comment.likes++; comment.likedBy.push(user.uid); }
         updatedComments[commentIndex] = comment;
-        
-        window.db.collection("posts").doc(postId).update({ 
-            comments: updatedComments 
-        }).catch(err => {
-            console.error("Yorum beğeni hatası:", err);
-            showNotification('İşlem başarısız.', 'error');
-        });
+        const card = document.querySelector(`.image-card[data-post-id="${postId}"]`);
+        if(card) {
+             const cBtn = card.querySelector(`.comment-like-btn[data-id="${commentId}"]`);
+             if(cBtn) { cBtn.innerHTML = `<i class="${!isLiked ? 'fas' : 'far'} fa-heart"></i> ${comment.likes > 0 ? comment.likes : ''}`; cBtn.classList.toggle('active'); }
+        }
+        window.db.collection("posts").doc(postId).update({ comments: updatedComments });
     }
 
-    // YENİ: Yorum gönderildiğinde flag'i işaretle
     function sendComment(postId, text) {
         if (!text.trim()) { showNotification('Boş yorum gönderilemez.', 'error'); return; }
-        const user = getCurrentUserOrAlert();
-        if(!user) return;
-        
-        // İşaretçiyi ayarla
-        justCommentedPostId = postId;
-        
+        const user = getCurrentUserOrAlert(); if(!user) return;
         const newComment = { id: Date.now().toString(), username: user.username, text: text, timestamp: new Date().toISOString(), likes: 0, likedBy: [] };
+        const post = rawPosts.find(p => p.id === postId);
+        if(post) {
+            if(!post.comments) post.comments = []; post.comments.push(newComment);
+            const card = document.querySelector(`.image-card[data-post-id="${postId}"]`);
+            if(card) {
+                const list = card.querySelector('.comments-list'); const btn = card.querySelector('.toggle-comments-btn');
+                if(list) list.innerHTML = renderCommentsHTML(post.comments, user);
+                if(btn) btn.innerHTML = `<i class="far fa-comments"></i> Tartışma (${post.comments.length})`;
+            }
+        }
         window.db.collection("posts").doc(postId).update({ comments: firebase.firestore.FieldValue.arrayUnion(newComment) })
             .then(() => showNotification('Yorum gönderildi', 'success'));
     }
 
     function deleteComment(postId, cId) {
         if(!confirm("Yorumu silmek istiyor musunuz?")) return;
-        const currentPost = getPostById(postId);
-        if(!currentPost) return;
+        const currentPost = rawPosts.find(p => p.id === postId); if(!currentPost) return;
         const updated = currentPost.comments.filter(c => c.id !== cId);
+        currentPost.comments = updated; 
+        const card = document.querySelector(`.image-card[data-post-id="${postId}"]`);
+        if(card) { const list = card.querySelector('.comments-list'); const user = JSON.parse(localStorage.getItem('currentUser')); if(list) list.innerHTML = renderCommentsHTML(updated, user); }
         window.db.collection("posts").doc(postId).update({ comments: updated });
     }
 
     function deletePost(postId) {
         if(confirm("Gönderiyi silmek istiyor musunuz?")) {
-            window.db.collection("posts").doc(postId).delete().then(() => showNotification('Gönderi silindi', 'success'));
+            window.db.collection("posts").doc(postId).delete().then(() => {
+                showNotification('Gönderi silindi', 'success');
+                const card = document.querySelector(`.image-card[data-post-id="${postId}"]`);
+                if(card) card.remove();
+                rawPosts = rawPosts.filter(p => p.id !== postId);
+            });
         }
     }
 
@@ -553,76 +515,40 @@ document.addEventListener('DOMContentLoaded', function() {
             const user = JSON.parse(localStorage.getItem('currentUser'));
             if (!user) { showNotification('Giriş yapmalısınız!', 'error'); return; }
             if (!selectedImage && !caption) { showNotification('Görsel veya açıklama ekleyin.', 'error'); return; }
-
-            const newPost = {
-                username: user.username, 
-                userId: user.uid, 
-                caption: caption,
-                image: selectedImage, 
-                imageType: selectedImage ? 'uploaded' : 'none',
-                timestamp: new Date().toISOString(), 
-                likes: 0, 
-                likedBy: [], 
-                comments: [],
-                userProfilePic: user.profilePic || null
-            };
-
-            sharePostBtn.textContent = 'Paylaşılıyor...';
-            sharePostBtn.disabled = true;
-
-            window.db.collection("posts").add(newPost).then(() => {
-                if(addPostModal) {
-                    addPostModal.style.display = 'none';
-                    addPostModal.setAttribute('aria-hidden', 'true');
-                    document.body.style.overflow = 'auto';
-                }
-
-                if (typeof window.switchTab === 'function') {
-                    window.switchTab('home');
-                } else {
-                    const homeNav = document.getElementById('home-nav');
-                    if (homeNav) homeNav.click();
-                }
-
-                document.getElementById('post-caption').value = '';
-                selectedImage = null;
+            const newPost = { username: user.username, userId: user.uid, caption: caption, image: selectedImage, imageType: selectedImage ? 'uploaded' : 'none', timestamp: new Date().toISOString(), likes: 0, likedBy: [], comments: [], userProfilePic: user.profilePic || null };
+            sharePostBtn.textContent = 'Paylaşılıyor...'; sharePostBtn.disabled = true;
+            window.db.collection("posts").add(newPost).then((docRef) => {
+                newPost.id = docRef.id; rawPosts.unshift(newPost);
+                const card = createPostElement(newPost, user);
+                if(imageFeed.firstChild) imageFeed.insertBefore(card, imageFeed.firstChild); else imageFeed.appendChild(card);
+                if(addPostModal) { addPostModal.style.display = 'none'; document.body.style.overflow = 'auto'; }
+                if (typeof window.switchTab === 'function') window.switchTab('home');
+                document.getElementById('post-caption').value = ''; selectedImage = null;
                 if(imagePreview) imagePreview.style.display = 'none';
-                sharePostBtn.textContent = 'Paylaş';
-                sharePostBtn.disabled = false;
+                sharePostBtn.textContent = 'Paylaş'; sharePostBtn.disabled = false;
                 showNotification('Paylaşıldı!', 'success');
-            }).catch((error) => {
-                console.error("Paylaşım hatası:", error);
-                showNotification("Bir hata oluştu.", 'error');
-                sharePostBtn.textContent = 'Paylaş';
-                sharePostBtn.disabled = false;
-            });
+            }).catch((error) => { console.error("Paylaşım hatası:", error); sharePostBtn.textContent = 'Paylaş'; sharePostBtn.disabled = false; });
         });
     }
 
     if (imageUploadArea) {
         imageUploadArea.addEventListener('click', () => {
-            const input = document.createElement('input');
-            input.type = 'file'; 
-            input.accept = 'image/*';
+            const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*';
             input.onchange = (e) => {
                 if (e.target.files && e.target.files[0]) {
-                    const file = e.target.files[0];
                     const reader = new FileReader();
                     if(imagePreview) { imagePreview.style.display = 'block'; imagePreview.style.opacity = '0.5'; }
                     reader.onload = (ev) => {
-                        compressImage(ev.target.result).then(compressedBase64 => {
-                            selectedImage = compressedBase64;
-                            if(imagePreview) { imagePreview.style.opacity = '1'; imagePreview.src = compressedBase64; }
-                        });
+                        compressImage(ev.target.result).then(compressedBase64 => { selectedImage = compressedBase64; if(imagePreview) { imagePreview.style.opacity = '1'; imagePreview.src = compressedBase64; } });
                     };
-                    reader.readAsDataURL(file);
+                    reader.readAsDataURL(e.target.files[0]);
                 }
             };
             input.click();
         });
     }
 
-    // --- GELİŞMİŞ TAM EKRAN GÖRSEL & ZOOM SİSTEMİ (INSTAGRAM TARZI AKICILIK) ---
+    // --- GELİŞMİŞ TAM EKRAN GÖRSEL & ZOOM SİSTEMİ (ONARILDI) ---
     const fullscreenViewer = document.getElementById('fullscreen-viewer');
     const fullscreenImg = document.getElementById('fullscreen-image');
     const closeFullscreenBtn = document.getElementById('close-fullscreen-btn');
@@ -638,15 +564,12 @@ document.addEventListener('DOMContentLoaded', function() {
         startY: 0
     };
 
-    // Ayarlar
     const minScale = 1;
     const maxScale = 5;
 
     function openFullscreenImage(src) {
         if (!fullscreenViewer || !fullscreenImg) return;
         fullscreenImg.src = src;
-        
-        // YENİ: Arka plan için değişkeni ayarla
         fullscreenViewer.style.setProperty('--fullscreen-bg', `url('${src}')`);
         
         fullscreenViewer.classList.add('active');
@@ -663,7 +586,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function resetZoom() {
         state = { scale: 1, panning: false, pointX: 0, pointY: 0, startX: 0, startY: 0 };
-        // Resetlerken yumuşak geçişi aç
         if(fullscreenImg) {
             fullscreenImg.style.transition = 'transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
             updateTransform();
@@ -696,18 +618,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (fullscreenContainer && fullscreenImg) {
         let lastTap = 0;
-        let isPinching = false; // BU DEĞİŞKEN "SNAP-BACK" SORUNUNU ÇÖZER
+        let isPinching = false;
 
+        // --- MOBİL DOKUNMATİK OLAYLARI ---
         fullscreenContainer.addEventListener('touchend', function (e) {
             const currentTime = new Date().getTime();
             const tapLength = currentTime - lastTap;
             
-            // Çift Tıklama Mantığı
-            // Pinch (kıstırma) işlemi yapmıyorsak ve parmak sayısı 0 ise kontrol et
             if (!isPinching && tapLength < 300 && tapLength > 0 && e.touches.length === 0) {
                 e.preventDefault();
                 fullscreenImg.style.transition = 'transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
-                // İSTEK: Çift tıklama sıfırlama işlevi görsün
                 if (state.scale > 1) {
                     resetZoom();
                 } else {
@@ -721,23 +641,18 @@ document.addEventListener('DOMContentLoaded', function() {
             if (e.touches.length === 0) {
                 state.panning = false;
                 fullscreenImg.style.transition = 'transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
-                
-                // Kalıcı Zoom Mantığı
-                // Sadece resim normalden küçükse resetle, yoksa olduğu gibi bırak
                 if (state.scale < 1) {
                     resetZoom();
                 }
-                
-                // Pinch işlemi bitti, flag'i kapat (Double tap kilidini açma ama lastTap güncelleme)
                 if (isPinching) {
                     isPinching = false;
-                    return; // Pinch sonrası hemen çift tıklama algılanmasın
+                    return; 
                 }
             }
             lastTap = currentTime;
         });
 
-        // Masaüstü Çift Tıklama
+        // --- MASAÜSTÜ ÇİFT TIKLAMA ---
         fullscreenContainer.addEventListener('dblclick', (e) => {
             fullscreenImg.style.transition = 'transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
             if (state.scale > 1) {
@@ -748,7 +663,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
 
-        // --- 2. Dokunmatik Hareketler (Pinch & Pan) - Mobil ---
         let initialPinchDistance = 0;
         let initialScale = 1;
         let initialPinchCenter = { x: 0, y: 0 };
@@ -758,7 +672,7 @@ document.addEventListener('DOMContentLoaded', function() {
             fullscreenImg.style.transition = 'none';
 
             if (e.touches.length === 2) {
-                isPinching = true; // Pinch başladı
+                isPinching = true;
                 state.panning = false;
                 initialPinchDistance = Math.hypot(
                     e.touches[0].pageX - e.touches[1].pageX,
@@ -773,7 +687,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 initialPoint = { x: state.pointX, y: state.pointY };
                 
             } else if (e.touches.length === 1) {
-                // Pan (1 parmak - Zoom varsa veya normal durumda)
                 state.panning = true;
                 state.startX = e.touches[0].pageX - state.pointX;
                 state.startY = e.touches[0].pageY - state.pointY;
@@ -784,7 +697,6 @@ document.addEventListener('DOMContentLoaded', function() {
             e.preventDefault();
 
             if (e.touches.length === 2) {
-                // Pinch & Pan (2 parmakla hem zoom hem kaydırma)
                 const currentDistance = Math.hypot(
                     e.touches[0].pageX - e.touches[1].pageX,
                     e.touches[0].pageY - e.touches[1].pageY
@@ -810,15 +722,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     updateTransform();
                 }
             } else if (e.touches.length === 1 && state.panning && state.scale > 1) {
-                // Tek parmakla hareket (Sadece zoom yapılmışsa çalışır)
-                // Kalıcı zoom sayesinde parmak çekilse bile scale > 1 kalacağı için bu çalışır
                 state.pointX = e.touches[0].pageX - state.startX;
                 state.pointY = e.touches[0].pageY - state.startY;
                 updateTransform();
             }
         });
 
-        // --- 3. Mouse Tekerleği (Wheel) ile Zoom ---
+        // --- MASAÜSTÜ MOUSE TEKERLEĞİ İLE ZOOM ---
         fullscreenContainer.addEventListener('wheel', (e) => {
             e.preventDefault();
             fullscreenImg.style.transition = 'none';
@@ -837,7 +747,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }, { passive: false });
 
-        // --- 4. Mouse Sürükleme (Pan) ---
+        // --- MASAÜSTÜ SÜRÜKLEME ---
         let isMouseDown = false;
 
         fullscreenContainer.addEventListener('mousedown', (e) => {
@@ -863,7 +773,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const stopDrag = () => {
             if (isMouseDown) {
                 isMouseDown = false;
-                fullscreenContainer.style.cursor = 'default';
+                fullscreenContainer.style.cursor = 'zoom-out'; // Zoomlu ise zoom-out göster
                 fullscreenImg.style.transition = 'transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
             }
         };
@@ -872,5 +782,6 @@ document.addEventListener('DOMContentLoaded', function() {
         fullscreenContainer.addEventListener('mouseleave', stopDrag);
     }
 
+    window.loadImageFeed = initFeed;
     initFeed();
 });
