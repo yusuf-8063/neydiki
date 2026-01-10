@@ -1,4 +1,4 @@
-// script.js - GÜNCELLENMİŞ (Modal Kapanış Tetikleyicisi)
+// script.js - GÜNCELLENMİŞ (Başlık Düzeltildi)
 
 // Global değişkenler ve yardımcı fonksiyonlar
 function showNotification(message, type = 'info') {
@@ -75,7 +75,8 @@ function closeModal(modal) {
 }
 
 function updatePageTitle(title) {
-    document.title = `${title} - NeydiKi Social`;
+    // BURASI GÜNCELLENDİ: "Social" ifadesi kaldırıldı, yerine "NeydiKi?" getirildi.
+    document.title = `${title} - NeydiKi?`;
     if (title === 'Ana Sayfa') {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
