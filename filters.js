@@ -1,4 +1,4 @@
-// filters.js - ANLIK ARAMA VE FİLTRELEME SİSTEMİ (CHECKBOX GÜNCELLEMESİ)
+// filters.js - ÇOKLU SEÇİM GÜNCELLEMESİ (BEĞENİ VE YORUM AYNI ANDA)
 document.addEventListener('DOMContentLoaded', function() {
     // Element Seçimleri
     const mobileFilterToggle = document.getElementById('mobile-filter-toggle');
@@ -33,7 +33,6 @@ document.addEventListener('DOMContentLoaded', function() {
     };
 
     // --- ARAMA İŞLEMLERİ (REAL-TIME / CANLI) ---
-    
     const handleLiveSearch = (e) => {
         if(searchInput) {
             const term = searchInput.value.trim().toLowerCase();
@@ -63,7 +62,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // --- DİĞER FİLTRE EVENTLERİ ---
-
     if (mobileFilterToggle) {
         mobileFilterToggle.addEventListener('click', () => {
             filtersSidebar.classList.add('active');
@@ -79,36 +77,27 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // --- TIKLAMA MANTIĞI GÜNCELLEMESİ ---
+    // --- SEÇENEK TIKLAMA MANTIĞI ---
     filterOptions.forEach(option => {
         option.addEventListener('click', function() {
             const type = this.dataset.filter;
             const value = this.dataset.value;
 
-            // 1. ZAMAN SIRALAMASI (Radio Mantığı)
+            // 1. ZAMAN SIRALAMASI (Radio Mantığı - Tekil Seçim)
             if (type === 'timeSort') {
                 document.querySelectorAll(`.filter-option[data-filter="timeSort"]`).forEach(el => el.classList.remove('active'));
                 this.classList.add('active');
                 internalState.timeSort = value;
-                
-                // Zaman değişince özel sıralamaları (like/discuss) kaldırabiliriz veya tutabiliriz.
-                // Kullanıcı deneyimi için: Zaman seçerse, özel sıralamayı kapatmıyoruz ama
-                // mantık olarak özel sıralama seçiliyse o baskın gelir.
             } 
             
-            // 2. POPÜLERLİK SIRALAMASI (Checkbox Mantığı - Öncelikli)
+            // 2. POPÜLERLİK SIRALAMASI (Checkbox Mantığı - ÇOKLU SEÇİM AKTİF)
             else if (type === 'featureSort') {
                 if (value === 'most-liked') {
                     internalState.isLiked = !internalState.isLiked;
-                    // Eğer Beğeni seçildiyse, Tartışmayı kapat (Tekil sıralama için)
-                    if(internalState.isLiked) internalState.isDiscussed = false;
                 } else if (value === 'most-commented') {
                     internalState.isDiscussed = !internalState.isDiscussed;
-                    // Eğer Tartışma seçildiyse, Beğeniyi kapat
-                    if(internalState.isDiscussed) internalState.isLiked = false;
                 }
-                
-                // UI Güncelleme
+                // ARTIK BİRBİRLERİNİ KAPATMIYORLAR
                 updateCheckboxUI();
             } 
             
@@ -132,20 +121,27 @@ document.addEventListener('DOMContentLoaded', function() {
         const likedBtn = document.querySelector(`.filter-option[data-value="most-liked"]`);
         const discussedBtn = document.querySelector(`.filter-option[data-value="most-commented"]`);
 
-        if (internalState.isLiked) likedBtn.classList.add('active');
-        else likedBtn.classList.remove('active');
+        if (likedBtn) {
+            if (internalState.isLiked) likedBtn.classList.add('active');
+            else likedBtn.classList.remove('active');
+        }
 
-        if (internalState.isDiscussed) discussedBtn.classList.add('active');
-        else discussedBtn.classList.remove('active');
+        if (discussedBtn) {
+            if (internalState.isDiscussed) discussedBtn.classList.add('active');
+            else discussedBtn.classList.remove('active');
+        }
     }
 
     function determineFinalSort() {
-        // Öncelik: Özel Sıralamalar > Zaman Sıralaması
-        if (internalState.isLiked) {
+        // Eğer ikisi de seçiliyse 'hybrid' (Karışık) moduna geç
+        if (internalState.isLiked && internalState.isDiscussed) {
+            currentFilters.sort = 'hybrid'; 
+        } else if (internalState.isLiked) {
             currentFilters.sort = 'most-liked';
         } else if (internalState.isDiscussed) {
             currentFilters.sort = 'most-commented';
         } else {
+            // Hiçbiri seçili değilse zaman sıralamasına dön
             currentFilters.sort = internalState.timeSort;
         }
     }
@@ -156,7 +152,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // Temizle Butonu
     if (clearFiltersBtn) {
         clearFiltersBtn.addEventListener('click', () => {
-            // UI Sıfırla
             document.querySelectorAll('.filter-option').forEach(el => el.classList.remove('active'));
             
             // Varsayılan Zamanı Seç
@@ -167,20 +162,8 @@ document.addEventListener('DOMContentLoaded', function() {
             if(endDateInput) endDateInput.value = '';
             if(searchInput) searchInput.value = '';
 
-            // Hafızayı Sıfırla
-            internalState = {
-                timeSort: 'newest',
-                isLiked: false,
-                isDiscussed: false
-            };
-            
-            currentFilters = {
-                sort: 'newest',
-                mediaType: [],
-                dateStart: null,
-                dateEnd: null,
-                search: ''
-            };
+            internalState = { timeSort: 'newest', isLiked: false, isDiscussed: false };
+            currentFilters = { sort: 'newest', mediaType: [], dateStart: null, dateEnd: null, search: '' };
             
             renderActiveTags();
             applyFiltersToFeed();
@@ -234,11 +217,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (currentFilters.search) createTag(`<i class="fas fa-search"></i> "${currentFilters.search}"`);
 
-        // Etiket Mantığı
+        // Etiket Mantığı (Aynı anda görünebilirler)
         if (internalState.isLiked) createTag('En Çok Beğenilen');
-        else if (internalState.isDiscussed) createTag('En Çok Tartışılan');
-        else if (internalState.timeSort === 'oldest') createTag('En Eski');
-        // 'En Yeni' varsayılan olduğu için etiket göstermiyoruz
+        if (internalState.isDiscussed) createTag('En Çok Tartışılan');
+        
+        if (!internalState.isLiked && !internalState.isDiscussed && internalState.timeSort === 'oldest') {
+            createTag('En Eski');
+        }
 
         currentFilters.mediaType.forEach(type => {
             if(type === 'image') createTag('Görsel');
@@ -257,7 +242,10 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!badge) return;
 
         let count = 0;
-        if (currentFilters.sort !== 'newest') count++;
+        if (currentFilters.sort !== 'newest') count++; // Herhangi bir sıralama varsa +1
+        // İkisi birden seçiliyse +2 olarak saymak için:
+        if (internalState.isLiked && internalState.isDiscussed) count = count + 1; // Zaten sort değiştiği için +1 almıştı, hibrit ise +1 daha ekle
+        
         if (currentFilters.mediaType.length > 0) count++;
         if (currentFilters.dateStart || currentFilters.dateEnd) count++;
         if (currentFilters.search) count++;
