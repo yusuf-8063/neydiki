@@ -1,6 +1,6 @@
-// feed.js - INSTAGRAM TARZI ZOOM VE AMBIENT BLUR (FINAL)
+// feed.js - KALICI ZOOM VE TEK PARMAK GEZİNME (GÜNCELLENMİŞ VERSİYON)
 document.addEventListener('DOMContentLoaded', function() {
-    console.log("Feed.js: Sistem Başlatıldı - Instagram Zoom Modu Aktif");
+    console.log("Feed.js: Sistem Başlatıldı - Kalıcı Zoom Modu Aktif");
 
     const imageFeed = document.getElementById('image-feed');
     const sharePostBtn = document.getElementById('share-post-btn');
@@ -691,11 +691,13 @@ document.addEventListener('DOMContentLoaded', function() {
             // Çift tıklama algılandı
             if (tapLength < 300 && tapLength > 0 && e.touches.length === 0) {
                 e.preventDefault();
-                // Animasyonu aç
                 fullscreenImg.style.transition = 'transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+                
+                // İSTEK: Çift tıklayınca normal boyutuna dönsün
                 if (state.scale > 1) {
-                    resetZoom();
+                    resetZoom(); // Büyütülmüşse küçült
                 } else {
+                    // Normal boyuttaysa 2 kat büyüt (Standart davranış)
                     state.scale = 2;
                     state.pointX = 0;
                     state.pointY = 0;
@@ -706,9 +708,13 @@ document.addEventListener('DOMContentLoaded', function() {
             if (e.touches.length === 0) {
                 state.panning = false;
                 fullscreenImg.style.transition = 'transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
-                if (state.scale < 1.1) {
+                
+                // İSTEK: Parmaklar çekilince zoom kaybolmasın (Kalıcı Zoom)
+                // Sadece normalden küçükse (zoom out yapılmışsa) resetle
+                if (state.scale < 1) {
                     resetZoom();
                 }
+                // DİĞER DURUMLARDA OLDUĞU GİBİ KALIR
             }
             lastTap = currentTime;
         });
@@ -727,21 +733,32 @@ document.addEventListener('DOMContentLoaded', function() {
         // --- 2. Dokunmatik Hareketler (Pinch & Pan) - Mobil ---
         let initialPinchDistance = 0;
         let initialScale = 1;
+        let initialPinchCenter = { x: 0, y: 0 };
+        let initialPoint = { x: 0, y: 0 };
 
         fullscreenContainer.addEventListener('touchstart', (e) => {
-            // Sürükleme başladığında transition'ı KAPAT (LAG OLMASIN)
             fullscreenImg.style.transition = 'none';
 
             if (e.touches.length === 2) {
-                // Pinch
+                // Pinch (2 parmak)
                 state.panning = false;
                 initialPinchDistance = Math.hypot(
                     e.touches[0].pageX - e.touches[1].pageX,
                     e.touches[0].pageY - e.touches[1].pageY
                 );
                 initialScale = state.scale;
+                
+                // 2 parmak merkezini kaydet
+                initialPinchCenter = {
+                    x: (e.touches[0].pageX + e.touches[1].pageX) / 2,
+                    y: (e.touches[0].pageY + e.touches[1].pageY) / 2
+                };
+                // Mevcut konumu kaydet
+                initialPoint = { x: state.pointX, y: state.pointY };
+                
             } else if (e.touches.length === 1) {
-                // Pan (Zoom varsa)
+                // Pan (1 parmak - Zoom varsa)
+                // İSTEK: Tek parmakla hareket ettirilebilsin (Zoom kalıcı olduğu için bu çalışacak)
                 state.panning = true;
                 state.startX = e.touches[0].pageX - state.pointX;
                 state.startY = e.touches[0].pageY - state.pointY;
@@ -752,19 +769,35 @@ document.addEventListener('DOMContentLoaded', function() {
             e.preventDefault();
 
             if (e.touches.length === 2) {
+                // Pinch & Pan (2 parmakla hem zoom hem kaydırma)
                 const currentDistance = Math.hypot(
                     e.touches[0].pageX - e.touches[1].pageX,
                     e.touches[0].pageY - e.touches[1].pageY
                 );
+                
+                // Şu anki merkez
+                const currentCenter = {
+                    x: (e.touches[0].pageX + e.touches[1].pageX) / 2,
+                    y: (e.touches[0].pageY + e.touches[1].pageY) / 2
+                };
 
                 if (initialPinchDistance > 0) {
                     const diff = currentDistance / initialPinchDistance;
                     let newScale = initialScale * diff;
                     newScale = Math.min(Math.max(minScale, newScale), maxScale);
                     state.scale = newScale;
+                    
+                    // 2 parmak hareketiyle kaydırma (Pan)
+                    const dx = currentCenter.x - initialPinchCenter.x;
+                    const dy = currentCenter.y - initialPinchCenter.y;
+                    
+                    state.pointX = initialPoint.x + dx;
+                    state.pointY = initialPoint.y + dy;
+
                     updateTransform();
                 }
             } else if (e.touches.length === 1 && state.panning && state.scale > 1) {
+                // İSTEK: Tek parmakla hareket (Zoom yapılmışsa)
                 state.pointX = e.touches[0].pageX - state.startX;
                 state.pointY = e.touches[0].pageY - state.startY;
                 updateTransform();
