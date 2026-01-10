@@ -1,4 +1,4 @@
-/* top-nav.css - MOBİL İKON DÜZELTMESİ (SAĞA YASLANDI) */
+/* top-nav.css - MOBİL İÇİN HIZLI TEPKİ - FINAL */
 
 .top-nav {
     display: flex; justify-content: space-between;
@@ -22,32 +22,24 @@
     background-color: var(--background); color: var(--text);
     font-size: 15px; transition: all 0.3s ease; outline: none;
 }
-
-.search-input:focus {
-    border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(0, 149, 246, 0.1);
-}
-
+.search-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(0, 149, 246, 0.1); }
 .search-input::placeholder { color: var(--text-light); opacity: 1; }
 
 .search-btn {
     position: absolute; right: 15px; top: 50%;
     transform: translateY(-50%); background: none;
     border: none; color: var(--text-light); cursor: pointer;
-    padding: 8px; border-radius: 50%; transition: all 0.3s ease;
+    padding: 8px; border-radius: 50%; transition: all 0.1s ease;
     font-size: 16px;
 }
-
-.search-btn:hover {
-    color: var(--primary);
-    background-color: var(--primary-light);
-}
+@media (hover: hover) { .search-btn:hover { color: var(--primary); background-color: var(--primary-light); } }
+.search-btn:active { background-color: var(--primary-light); color: var(--primary); transform: translateY(-50%) scale(0.9); }
 
 .nav-icons { display: flex; gap: 12px; }
 
 .nav-icon {
     font-size: 20px; color: var(--text);
-    cursor: pointer; transition: all 0.3s ease;
+    cursor: pointer; transition: all 0.1s ease;
     padding: 10px; border-radius: 50%;
     width: 44px; height: 44px; display: flex;
     align-items: center; justify-content: center;
@@ -55,21 +47,14 @@
     background: transparent; outline: none;
 }
 
-.nav-icon:hover { 
-    color: var(--primary); 
-    background-color: var(--primary-light); 
-    transform: scale(1.1); 
-}
-
-.nav-icon:focus-visible { 
-    outline: 2px solid var(--primary); 
-    outline-offset: 2px; 
-}
+@media (hover: hover) { .nav-icon:hover { color: var(--primary); background-color: var(--primary-light); transform: scale(1.1); } }
+/* Dokununca arka plan parlasın */
+.nav-icon:active { background-color: var(--primary-light); color: var(--primary); transform: scale(0.9); }
+.nav-icon:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 
 #dark-mode-icon { transition: transform 0.5s ease; }
 [data-theme="dark"] #dark-mode-icon { transform: rotate(180deg); }
 
-/* Responsive */
 @media (max-width: 768px) {
     .top-nav { padding: 12px 15px; gap: 10px; }
     .search-container { max-width: 200px; }
@@ -84,13 +69,6 @@
     .nav-icons { gap: 8px; }
     .nav-icon { width: 40px; height: 40px; padding: 8px; font-size: 18px; }
     .logo-image { height: 50px; }
-    
-    /* GÜNCELLEME: İkonu sağa yasladık */
-    .search-btn {
-        right: 5px; /* Eskiden 15px idi, şimdi kenara daha yakın */
-    }
-    
-    .search-input::placeholder {
-        color: transparent;
-    }
+    .search-btn { right: 5px; }
+    .search-input::placeholder { color: transparent; }
 }
