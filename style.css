@@ -1,4 +1,5 @@
 /* style.css - DESKTOP FIX (SIDEBAR KONUM VE YÜKSEKLİK) - FINAL v4 + SMOOTH ANIMATION */
+/* GÜNCELLEME: Navbar Çakışma Sorunu Giderildi (Z-Index: 2000) */
 
 /* --- TEMEL AYARLAR VE DEĞİŞKENLER --- */
 * { 
@@ -136,7 +137,6 @@ body {
     position: relative; 
 }
 
-/* --- GÜNCELLENEN KISIM: Profil Resmi Kutucuğu --- */
 .user-avatar { 
     width: 40px; 
     height: 40px; 
@@ -210,7 +210,6 @@ body {
     margin-top: 6px;
 }
 
-/* Buton Özelleştirmeleri */
 .action-btn {
     color: var(--text-light);
     padding: 8px;
@@ -273,30 +272,26 @@ body {
     color: #ff4757;
 }
 
-/* --- TARTIŞMA & YORUMLAR (CHAT STİLİ - SMOOTH ANIMATION) --- */
+/* --- TARTIŞMA & YORUMLAR --- */
 .discussion-section {
-    /* Başlangıç (Gizli) Durumu */
     max-height: 0;
     opacity: 0;
     overflow: hidden;
-    /* Animasyon Ayarları: */
     transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1), 
                 opacity 0.4s ease, 
                 transform 0.4s ease,
                 padding 0.4s ease,
                 border 0.4s ease;
-    
     background: var(--background);
-    border-top: 0px solid transparent; /* Kapalıyken çizgi görünmesin */
-    transform: translateY(-10px); /* Hafif yukarıda dursun */
-    visibility: hidden; /* Kapalıyken tıklanmayı engelle */
+    border-top: 0px solid transparent; 
+    transform: translateY(-10px); 
+    visibility: hidden; 
 }
 
 .discussion-section.expanded {
-    /* Açık Durum */
-    max-height: 600px; /* İçerik sığacak kadar alan */
+    max-height: 600px; 
     opacity: 1;
-    transform: translateY(0); /* Yerine otursun */
+    transform: translateY(0); 
     visibility: visible;
     border-top: 1px solid var(--border);
 }
@@ -314,7 +309,6 @@ body {
     padding: 8px;
 }
 
-/* GENEL YORUM BALONCUĞU */
 .comment-item {
     max-width: 85%;
     min-width: 100px;
@@ -332,10 +326,9 @@ body {
     animation: slideInUp 0.3s ease;
 }
 
-/* BENİM YORUMUM (SAĞDA / MAVİ) */
 .comment-item.mine {
     align-self: flex-end;
-    background-color: rgba(0, 149, 246, 0.15); /* Hafif Şeffaf Mavi */
+    background-color: rgba(0, 149, 246, 0.15);
     border-color: rgba(0, 149, 246, 0.2);
     color: var(--text);
     border-radius: 14px;
@@ -358,7 +351,6 @@ body {
     opacity: 0.9;
 }
 
-/* SİLME BUTONU (SAĞ ÜST KÖŞE) */
 .comment-delete-btn {
     position: absolute;
     top: 3px;
@@ -382,7 +374,6 @@ body {
     opacity: 1;
 }
 
-/* Footer Alanı */
 .comment-footer {
     display: flex;
     align-items: center;
@@ -428,7 +419,7 @@ body {
     font-weight: 500;
     min-width: 30px;
     text-align: right;
-    margin-right: -4px; /* Sağa daha çok yasla */
+    margin-right: -4px; 
 }
 
 [data-theme="dark"] .comment-item.mine {
@@ -437,7 +428,6 @@ body {
     color: #fff;
 }
 
-/* Yorum Ekleme Alanı */
 .add-comment {
     display: flex;
     padding: 12px 15px;
@@ -486,7 +476,7 @@ body {
     transform: scale(1.1);
 }
 
-/* --- FİLTRE SİSTEMİ (DESKTOP DÜZELTİLMİŞ) --- */
+/* --- FİLTRE SİSTEMİ --- */
 .filters-container {
     display: flex;
     align-items: center;
@@ -494,7 +484,6 @@ body {
     padding: 0 10px;
 }
 
-/* 1. SIDEBAR ANA KAPSAYICI - MASAÜSTÜ AYARLARI GÜNCELLENDİ */
 .filters-sidebar {
     width: 320px;
     background: var(--surface);
@@ -502,9 +491,8 @@ body {
     box-shadow: var(--shadow-strong);
     border: 1px solid var(--border);
     position: sticky;
-    top: 85px; /* GÜNCELLENDİ: 100px -> 85px (Yukarı taşıma) */
-    height: calc(100vh - 100px); /* GÜNCELLENDİ: Butonların görünmesi için yükseklik ayarı */
-    /* max-height kaldırıldı */
+    top: 85px; 
+    height: calc(100vh - 100px); 
     flex-shrink: 0;
     display: flex;
     flex-direction: column; 
@@ -512,7 +500,6 @@ body {
     z-index: 90;
 }
 
-/* 2. BAŞLIK (SABİT) */
 .filters-header {
     display: flex;
     justify-content: space-between;
@@ -533,16 +520,14 @@ body {
     gap: 10px;
 }
 
-/* 3. SCROLL EDİLEBİLİR ORTA ALAN */
 .filters-scroll-content {
-    flex: 1; /* Boşluğu doldur */
-    overflow-y: auto; /* Sadece burası scroll etsin */
+    flex: 1; 
+    overflow-y: auto; 
     padding: 25px;
     scrollbar-width: thin;
     scrollbar-color: rgba(0, 149, 246, 0.5) transparent;
 }
 
-/* Scrollbar Webkit */
 .filters-scroll-content::-webkit-scrollbar { width: 6px; }
 .filters-scroll-content::-webkit-scrollbar-track { background: transparent; }
 .filters-scroll-content::-webkit-scrollbar-thumb {
@@ -551,7 +536,6 @@ body {
 }
 .filters-scroll-content::-webkit-scrollbar-thumb:hover { background-color: rgba(0, 149, 246, 0.8); }
 
-/* 4. FOOTER AKSİYONLARI (SABİT VE OPAK ARKA PLAN) */
 .filter-actions {
     flex-shrink: 0;
     display: flex;
@@ -563,7 +547,6 @@ body {
     box-shadow: 0 -4px 15px rgba(0,0,0,0.03);
 }
 
-/* İÇERİK DETAYLARI */
 .filter-group { margin-bottom: 25px; }
 
 .filter-group-title {
@@ -624,7 +607,6 @@ body {
 .filter-option.active .filter-checkbox:not(.radio)::after { content: '✓'; color: white; font-size: 11px; font-weight: bold; }
 .filter-option.active .filter-checkbox.radio::after { content: ''; width: 8px; height: 8px; background: white; border-radius: 50%; }
 
-/* Tarih Alanları */
 .date-range-container {
     display: flex;
     flex-direction: column;
@@ -683,7 +665,6 @@ body {
 
 .no-filters { font-size: 12px; color: var(--text-light); font-style: italic; }
 
-/* Butonlar */
 .filter-btn {
     flex: 1 1 0px;
     padding: 12px;
@@ -745,7 +726,7 @@ body {
     right: -5px;
 }
 
-/* --- MODAL STİLLERİ --- */
+/* --- MODAL STİLLERİ (GÜNCELLENDİ) --- */
 .modal { 
     display: none; 
     position: fixed; 
@@ -754,7 +735,8 @@ body {
     width: 100%; 
     height: 100%; 
     background-color: rgba(0, 0, 0, 0.5); 
-    z-index: 200; 
+    /* DÜZELTME BURADA: Navbar Z-Index'i 1000'di. Modal'ı 2000 yaptık. */
+    z-index: 2000; 
     justify-content: center; 
     align-items: center; 
     backdrop-filter: blur(4px); 
@@ -873,7 +855,6 @@ body {
     border-color: var(--primary);
 }
 
-/* Dark Mode Özel Ayarlar */
 [data-theme="dark"] .no-image-post {
     background: linear-gradient(135deg, rgba(0, 149, 246, 0.15) 0%, rgba(0, 149, 246, 0.05) 100%);
     border-color: rgba(0, 149, 246, 0.3);
@@ -883,7 +864,6 @@ body {
 [data-theme="dark"] .image-card .discussion-section { background-color: rgba(0,0,0,0.2); }
 [data-theme="dark"] .image-card .add-comment { background-color: var(--surface); }
 
-/* --- FEED LOADING (YÜKLENİYOR) ANİMASYONU --- */
 .feed-loading {
     display: flex;
     flex-direction: column;
@@ -891,7 +871,7 @@ body {
     justify-content: center;
     padding: 60px 20px;
     width: 100%;
-    grid-column: 1 / -1; /* Grid yapısında tam genişlik kaplasın */
+    grid-column: 1 / -1; 
     color: var(--text-light);
     animation: fadeIn 0.5s ease;
 }
@@ -915,16 +895,13 @@ body {
     opacity: 0.7;
 }
 
-/* --- GENEL SCROLLBAR AYARLARI --- */
 ::-webkit-scrollbar { width: 8px; }
 ::-webkit-scrollbar-track { background: var(--background); border-radius: 4px; }
 ::-webkit-scrollbar-thumb { background: var(--primary); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: #0081d6; }
 
-/* NAVBAR ÇAKIŞMA ÇÖZÜMLERİ */
 .floating-nav { z-index: 999; }
 
-/* --- ANIMATIONS (KEYFRAMES) --- */
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
@@ -965,12 +942,11 @@ body {
     .home-content-wrapper { flex-direction: column; gap: 0; }
     .home-main-content { padding-bottom: 20px; }
     
-    /* Mobil Filtre Menüsü Düzeltmeleri */
     .filters-sidebar {
         width: 100%;
         position: fixed;
         top: 0; left: 0; right: 0; bottom: 0;
-        height: 100% !important; /* Ekranı tam kapla */
+        height: 100% !important; 
         max-height: none;
         z-index: 300;
         border-radius: 0;
@@ -994,11 +970,10 @@ body {
         padding-top: 10px;
     }
     
-    /* Navbar Çakışmasını Önlemek İçin Padding */
     .filter-actions {
         padding: 15px 20px;
-        padding-bottom: 70px !important; /* Navbar yüksekliğini kurtarmak için */
-        background-color: var(--surface); /* Arka planı boya */
+        padding-bottom: 70px !important; 
+        background-color: var(--surface); 
         box-shadow: 0 -4px 15px rgba(0,0,0,0.1);
         position: relative;
         z-index: 20;
@@ -1032,6 +1007,13 @@ body {
     .no-image-text { font-size: 14px; }
     .post-content-only .card-content { padding: 15px; margin: 10px; }
     .post-content-only .card-content p { font-size: 14px; }
+
+    /* MODAL DÜZENLEMESİ: Mobilde ekstra boşluk */
+    .modal-content {
+        margin-bottom: 30px; /* Alttan biraz yukarı it */
+        max-height: 85vh;
+        overflow-y: auto;
+    }
 }
 
 @media (max-width: 480px) {
@@ -1048,7 +1030,6 @@ body {
     
     .mobile-filter-btn { padding: 10px 16px; font-size: 14px; }
     
-    /* Mobilde Butonları Yan Yana Al */
     .filter-actions { flex-direction: row; gap: 10px; }
     .filter-btn { padding: 12px; }
     
@@ -1060,7 +1041,6 @@ body {
     .no-image-text { font-size: 13px; }
 }
 
-/* --- HESAP SAYFASI TARTIŞMA MODAL DÜZELTMELERİ --- */
 .discussion-modal-content {
     padding: 0 !important;
     max-width: 500px !important;
