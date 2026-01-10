@@ -551,8 +551,15 @@ document.addEventListener('DOMContentLoaded', function() {
                     addPostModal.setAttribute('aria-hidden', 'true');
                     document.body.style.overflow = 'auto';
                 }
-                const homeNav = document.getElementById('home-nav');
-                if (homeNav) homeNav.click(); 
+
+                // GÜNCELLENEN KISIM: Direkt Ana Sayfa Sekmesine Geç
+                if (typeof window.switchTab === 'function') {
+                    window.switchTab('home');
+                } else {
+                    const homeNav = document.getElementById('home-nav');
+                    if (homeNav) homeNav.click();
+                }
+
                 document.getElementById('post-caption').value = '';
                 selectedImage = null;
                 if(imagePreview) imagePreview.style.display = 'none';
