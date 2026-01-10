@@ -265,7 +265,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // --- 5. YENİ KART OLUŞTURUCU (GÜNCELLENDİ) ---
+    // --- 5. YENİ KART OLUŞTURUCU (GÜNCELLENDİ: TAM EKRAN DESTEKLİ) ---
     function createPostElement(post, currentUser) {
         const div = document.createElement('div');
         div.className = 'image-card';
@@ -286,7 +286,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     <div style="color:white; font-weight:600; font-size:18px; text-align:center; text-shadow:0 2px 4px rgba(0,0,0,0.1);">Düşünce Paylaşımı</div>
                 </div>`;
         } else {
-            // YENİ YAPI: Bulanık Arka Plan + Orantılı Görsel
             contentHtml = `
                 <div class="post-media-container">
                     <div class="media-blur-bg" style="background-image: url('${post.image}')"></div>
@@ -344,6 +343,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
             </div>
         `;
+
+        // --- TAM EKRAN TIKLAMA OLAYI (BURASI EKLENDİ) ---
+        const postImage = div.querySelector('.card-image');
+        if (postImage && post.imageType !== 'none') {
+            postImage.style.cursor = 'zoom-in';
+            postImage.addEventListener('click', (e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                openFullscreenImage(post.image);
+            });
+        }
+        // ------------------------------------------------
 
         const delBtn = div.querySelector('.delete-post-btn');
         if(delBtn) delBtn.addEventListener('click', (e) => { e.preventDefault(); deletePost(post.id); });
@@ -599,6 +610,56 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             };
             input.click();
+        });
+    }
+
+    // --- TAM EKRAN GÖRSEL FONKSİYONLARI ---
+    const fullscreenViewer = document.getElementById('fullscreen-viewer');
+    const fullscreenImg = document.getElementById('fullscreen-image');
+    const closeFullscreenBtn = document.getElementById('close-fullscreen-btn');
+    const fullscreenContainer = document.getElementById('fullscreen-img-container');
+
+    function openFullscreenImage(src) {
+        if (!fullscreenViewer || !fullscreenImg) return;
+        fullscreenImg.src = src;
+        fullscreenViewer.classList.add('active');
+        document.body.style.overflow = 'hidden'; 
+        if(fullscreenContainer) fullscreenContainer.classList.remove('zoomed');
+    }
+
+    function closeFullscreenImage() {
+        if (!fullscreenViewer) return;
+        fullscreenViewer.classList.remove('active');
+        document.body.style.overflow = 'auto'; 
+        if(fullscreenContainer) fullscreenContainer.classList.remove('zoomed');
+        setTimeout(() => { if(fullscreenImg) fullscreenImg.src = ''; }, 300);
+    }
+
+    if (closeFullscreenBtn) {
+        closeFullscreenBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            closeFullscreenImage();
+        });
+    }
+
+    if (fullscreenViewer) {
+        fullscreenViewer.addEventListener('click', (e) => {
+            if (e.target === fullscreenViewer || e.target === fullscreenContainer) {
+                closeFullscreenImage();
+            }
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && fullscreenViewer.classList.contains('active')) {
+                closeFullscreenImage();
+            }
+        });
+    }
+
+    if (fullscreenContainer) {
+        fullscreenContainer.addEventListener('click', (e) => {
+            if (e.target !== closeFullscreenBtn) {
+                fullscreenContainer.classList.toggle('zoomed');
+            }
         });
     }
 
