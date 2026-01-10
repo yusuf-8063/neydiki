@@ -162,7 +162,7 @@ document.addEventListener('DOMContentLoaded', function() {
             sendResetBtn.addEventListener('click', handlePasswordReset);
         }
         
-        // YENİ: ŞİFRE GÖSTER/GİZLE ÖZELLİĞİ
+        // YENİ: KAYIT OL EKRANI İÇİN ŞİFRE GÖSTER/GİZLE ÖZELLİĞİ
         const toggleRegPassBtn = document.getElementById('toggle-register-password');
         const regPassInput = document.getElementById('register-password');
 
@@ -177,6 +177,27 @@ document.addEventListener('DOMContentLoaded', function() {
                 const icon = this.querySelector('i');
                 if (type === 'text') {
                     icon.className = 'fas fa-eye-slash'; // Göz kapalı veya çizik (FontAwesome sürümüne göre değişebilir)
+                } else {
+                    icon.className = 'fas fa-eye'; // Normal göz
+                }
+            });
+        }
+
+        // YENİ: GİRİŞ EKRANI İÇİN ŞİFRE GÖSTER/GİZLE ÖZELLİĞİ (BURASI EKLENDİ)
+        const toggleLoginPassBtn = document.getElementById('toggle-login-password');
+        const loginPassInput = document.getElementById('account-password');
+
+        if (toggleLoginPassBtn && loginPassInput) {
+            toggleLoginPassBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                // Tipe göre değişim yap
+                const type = loginPassInput.getAttribute('type') === 'password' ? 'text' : 'password';
+                loginPassInput.setAttribute('type', type);
+                
+                // İkonu değiştir
+                const icon = this.querySelector('i');
+                if (type === 'text') {
+                    icon.className = 'fas fa-eye-slash'; // Göz kapalı veya çizik
                 } else {
                     icon.className = 'fas fa-eye'; // Normal göz
                 }
