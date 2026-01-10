@@ -1,3 +1,5 @@
+// script.js - GÜNCELLENMİŞ (Modal Kapanış Tetikleyicisi)
+
 // Global değişkenler ve yardımcı fonksiyonlar
 function showNotification(message, type = 'info') {
     const existingNotification = document.querySelector('.notification');
@@ -9,7 +11,7 @@ function showNotification(message, type = 'info') {
     
     notification.style.cssText = `
         position: fixed; top: 20px; right: 20px; padding: 12px 20px; border-radius: 8px;
-        color: white; font-weight: 500; z-index: 1000; animation: slideIn 0.3s ease;
+        color: white; font-weight: 500; z-index: 2001; animation: slideIn 0.3s ease;
         max-width: 300px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         background: ${type === 'success' ? '#4CAF50' : type === 'error' ? '#f44336' : '#2196F3'};
     `;
@@ -39,7 +41,6 @@ function openModal(modal) {
         
         // Tartışma modalı için özel işlemler
         if (modal.id === 'discussion-modal') {
-            // Yorum listesini en alta kaydır
             setTimeout(() => {
                 const commentsList = document.getElementById('comments-list');
                 if (commentsList) {
@@ -50,6 +51,7 @@ function openModal(modal) {
     }
 }
 
+// GÜNCELLENEN KISIM: closeModal
 function closeModal(modal) {
     if (modal) {
         if (modal.querySelector('.modal-content')) {
@@ -61,14 +63,19 @@ function closeModal(modal) {
             modal.style.display = 'none';
             modal.setAttribute('aria-hidden', 'true');
             document.body.style.overflow = 'auto';
+
+            // ÖZEL DURUM: Eğer kapanan "Yeni Gönderi" penceresiyse navigasyonu düzelt
+            if (modal.id === 'add-post-modal') {
+                if (typeof window.restoreNavState === 'function') {
+                    window.restoreNavState();
+                }
+            }
         }, 300);
     }
 }
 
 function updatePageTitle(title) {
     document.title = `${title} - NeydiKi Social`;
-    
-    // Ana sayfa ise sayfayı en üste kaydır
     if (title === 'Ana Sayfa') {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -80,8 +87,6 @@ function showContent(contentToShow) {
     });
     if (contentToShow) {
         contentToShow.style.display = 'block';
-        
-        // Ana sayfa ise görsel akışını yenile
         if (contentToShow.id === 'home-content' && typeof loadImageFeed === 'function') {
             setTimeout(() => {
                 loadImageFeed();
@@ -93,11 +98,11 @@ function showContent(contentToShow) {
 function setActiveNav(navItem) {
     document.querySelectorAll('.nav-item').forEach(item => {
         item.classList.remove('active');
-        item.style.pointerEvents = 'auto'; // Tüm nav öğelerine tıklanabilirliği geri yükle
+        item.style.pointerEvents = 'auto'; 
     });
     if (navItem) {
         navItem.classList.add('active');
-        navItem.style.pointerEvents = 'none'; // Aktif olana tıklanmasın
+        navItem.style.pointerEvents = 'none'; 
     }
 }
 
@@ -135,7 +140,6 @@ document.addEventListener('DOMContentLoaded', function() {
             to { transform: translateX(100%); opacity: 0; } 
         }
         
-        /* Silme butonu stilleri */
         .delete-post-btn {
             background: none;
             border: none;
@@ -153,7 +157,6 @@ document.addEventListener('DOMContentLoaded', function() {
             color: #ff4757;
         }
 
-        /* Boş durum stilleri */
         .empty-state {
             text-align: center;
             padding: 60px 20px;
@@ -171,7 +174,6 @@ document.addEventListener('DOMContentLoaded', function() {
             font-size: 18px;
         }
         
-        /* Scrollbar stilleri - genel */
         ::-webkit-scrollbar {
             width: 8px;
         }
@@ -190,13 +192,11 @@ document.addEventListener('DOMContentLoaded', function() {
             background: #0081d6;
         }
         
-        /* Firefox için */
         * {
             scrollbar-width: thin;
             scrollbar-color: var(--primary) var(--background);
         }
         
-        /* Responsive image fix */
         .card-image {
             max-width: 100%;
             height: auto;
@@ -226,19 +226,14 @@ function refreshHomeFeed() {
 
 // Responsive layout kontrolü
 function checkLayout() {
-    const homeContent = document.getElementById('home-content');
     const filtersSidebar = document.getElementById('filters-sidebar');
     
     if (window.innerWidth <= 768) {
-        // Mobilde filtre sidebar'ını gizle
         if (filtersSidebar && filtersSidebar.classList.contains('active')) {
             filtersSidebar.classList.remove('active');
         }
     }
 }
 
-// Pencere boyutu değiştiğinde layout'u kontrol et
 window.addEventListener('resize', checkLayout);
-
-// Sayfa yüklendiğinde layout'u kontrol et
 document.addEventListener('DOMContentLoaded', checkLayout);
