@@ -1,6 +1,6 @@
-// feed.js - HİBRİT SIRALAMA DESTEKLİ (GÜNCEL)
+// feed.js - HİBRİT SIRALAMA + AKILLI KAPSAYICI DESTEKLİ (GÜNCEL)
 document.addEventListener('DOMContentLoaded', function() {
-    console.log("Feed.js: Sistem Başlatıldı - Premium Kalite Ayarları Aktif");
+    console.log("Feed.js: Sistem Başlatıldı - Premium Kalite ve Akıllı Kapsayıcı Aktif");
 
     const imageFeed = document.getElementById('image-feed');
     const sharePostBtn = document.getElementById('share-post-btn');
@@ -143,11 +143,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 case 'most-liked': return likesB - likesA;
                 case 'most-commented': return commentsB - commentsA;
                 
-                // YENİ: HİBRİT SIRALAMA (Beğeni + Yorum Toplamı)
+                // HİBRİT SIRALAMA
                 case 'hybrid': 
                     const scoreA = likesA + commentsA;
                     const scoreB = likesB + commentsB;
-                    // Eğer skorlar eşitse, yeni olanı öne al
                     if (scoreB === scoreA) return dateB - dateA;
                     return scoreB - scoreA;
 
@@ -266,7 +265,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // --- 5. YENİ KART OLUŞTURUCU ---
+    // --- 5. YENİ KART OLUŞTURUCU (GÜNCELLENDİ) ---
     function createPostElement(post, currentUser) {
         const div = document.createElement('div');
         div.className = 'image-card';
@@ -287,7 +286,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     <div style="color:white; font-weight:600; font-size:18px; text-align:center; text-shadow:0 2px 4px rgba(0,0,0,0.1);">Düşünce Paylaşımı</div>
                 </div>`;
         } else {
-            contentHtml = `<img src="${post.image}" class="card-image" loading="lazy" alt="Gönderi görseli">`;
+            // YENİ YAPI: Bulanık Arka Plan + Orantılı Görsel
+            contentHtml = `
+                <div class="post-media-container">
+                    <div class="media-blur-bg" style="background-image: url('${post.image}')"></div>
+                    <img src="${post.image}" class="card-image" loading="lazy" alt="Gönderi görseli">
+                </div>
+            `;
         }
 
         let avatarStyle = 'display: flex; align-items: center; justify-content: center;';
@@ -552,7 +557,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     document.body.style.overflow = 'auto';
                 }
 
-                // GÜNCELLENEN KISIM: Direkt Ana Sayfa Sekmesine Geç
                 if (typeof window.switchTab === 'function') {
                     window.switchTab('home');
                 } else {
