@@ -1,6 +1,6 @@
-// feed.js - MASAÜSTÜ SCROLL RESET + SÜRÜKLEME + MOBİL ZOOM (FINAL v3)
+// feed.js - INSTAGRAM TARZI ZOOM VE AMBIENT BLUR (FINAL)
 document.addEventListener('DOMContentLoaded', function() {
-    console.log("Feed.js: Sistem Başlatıldı - Scroll Reset Aktif");
+    console.log("Feed.js: Sistem Başlatıldı - Instagram Zoom Modu Aktif");
 
     const imageFeed = document.getElementById('image-feed');
     const sharePostBtn = document.getElementById('share-post-btn');
@@ -608,7 +608,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // --- GELİŞMİŞ TAM EKRAN GÖRSEL & ZOOM SİSTEMİ (Masaüstü & Mobil) ---
+    // --- GELİŞMİŞ TAM EKRAN GÖRSEL & ZOOM SİSTEMİ (INSTAGRAM TARZI AKICILIK) ---
     const fullscreenViewer = document.getElementById('fullscreen-viewer');
     const fullscreenImg = document.getElementById('fullscreen-image');
     const closeFullscreenBtn = document.getElementById('close-fullscreen-btn');
@@ -626,13 +626,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Ayarlar
     const minScale = 1;
-    const maxScale = 5; // Maksimum zoom seviyesi
+    const maxScale = 5;
 
     function openFullscreenImage(src) {
         if (!fullscreenViewer || !fullscreenImg) return;
         fullscreenImg.src = src;
+        
+        // YENİ: Arka plan için değişkeni ayarla
+        fullscreenViewer.style.setProperty('--fullscreen-bg', `url('${src}')`);
+        
         fullscreenViewer.classList.add('active');
-        document.body.style.overflow = 'hidden'; // Arka planı kilitle
+        document.body.style.overflow = 'hidden'; 
         resetZoom();
     }
 
@@ -645,7 +649,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function resetZoom() {
         state = { scale: 1, panning: false, pointX: 0, pointY: 0, startX: 0, startY: 0 };
-        updateTransform();
+        // Resetlerken yumuşak geçişi aç
+        if(fullscreenImg) {
+            fullscreenImg.style.transition = 'transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+            updateTransform();
+        }
     }
 
     function updateTransform() {
@@ -663,7 +671,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     if (fullscreenViewer) {
-        // Siyah alana tıklayınca kapat (sürükleme veya zoom yoksa)
         fullscreenViewer.addEventListener('click', (e) => {
             if (state.scale === 1 && !state.panning) {
                 if (e.target === fullscreenViewer || e.target === fullscreenContainer) {
@@ -675,15 +682,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (fullscreenContainer && fullscreenImg) {
         
-        // --- 1. Çift Tıklama (Zoom In/Out) - Mobil ve Desktop ---
+        // --- 1. Çift Tıklama (Zoom In/Out) ---
         let lastTap = 0;
         
-        // Mobil Çift Tıklama
         fullscreenContainer.addEventListener('touchend', function (e) {
             const currentTime = new Date().getTime();
             const tapLength = currentTime - lastTap;
+            // Çift tıklama algılandı
             if (tapLength < 300 && tapLength > 0 && e.touches.length === 0) {
                 e.preventDefault();
+                // Animasyonu aç
+                fullscreenImg.style.transition = 'transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
                 if (state.scale > 1) {
                     resetZoom();
                 } else {
@@ -693,11 +702,20 @@ document.addEventListener('DOMContentLoaded', function() {
                     updateTransform();
                 }
             }
+            // Sürükleme bittiğinde animasyonu geri aç
+            if (e.touches.length === 0) {
+                state.panning = false;
+                fullscreenImg.style.transition = 'transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+                if (state.scale < 1.1) {
+                    resetZoom();
+                }
+            }
             lastTap = currentTime;
         });
 
         // Masaüstü Çift Tıklama
         fullscreenContainer.addEventListener('dblclick', (e) => {
+            fullscreenImg.style.transition = 'transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
             if (state.scale > 1) {
                 resetZoom();
             } else {
@@ -711,8 +729,11 @@ document.addEventListener('DOMContentLoaded', function() {
         let initialScale = 1;
 
         fullscreenContainer.addEventListener('touchstart', (e) => {
+            // Sürükleme başladığında transition'ı KAPAT (LAG OLMASIN)
+            fullscreenImg.style.transition = 'none';
+
             if (e.touches.length === 2) {
-                // İki parmak: Zoom başlat
+                // Pinch
                 state.panning = false;
                 initialPinchDistance = Math.hypot(
                     e.touches[0].pageX - e.touches[1].pageX,
@@ -720,7 +741,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 );
                 initialScale = state.scale;
             } else if (e.touches.length === 1) {
-                // Tek parmak: Pan (Kaydırma) başlat (Eğer zoom yapılmışsa)
+                // Pan (Zoom varsa)
                 state.panning = true;
                 state.startX = e.touches[0].pageX - state.pointX;
                 state.startY = e.touches[0].pageY - state.pointY;
@@ -728,10 +749,9 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
         fullscreenContainer.addEventListener('touchmove', (e) => {
-            e.preventDefault(); // Sayfa kaymasını engelle
+            e.preventDefault();
 
             if (e.touches.length === 2) {
-                // Pinch (Kıstırma) hareketi
                 const currentDistance = Math.hypot(
                     e.touches[0].pageX - e.touches[1].pageX,
                     e.touches[0].pageY - e.touches[1].pageY
@@ -741,41 +761,27 @@ document.addEventListener('DOMContentLoaded', function() {
                     const diff = currentDistance / initialPinchDistance;
                     let newScale = initialScale * diff;
                     newScale = Math.min(Math.max(minScale, newScale), maxScale);
-                    
                     state.scale = newScale;
                     updateTransform();
                 }
             } else if (e.touches.length === 1 && state.panning && state.scale > 1) {
-                // Pan (Kaydırma) hareketi
                 state.pointX = e.touches[0].pageX - state.startX;
                 state.pointY = e.touches[0].pageY - state.startY;
                 updateTransform();
             }
         });
 
-        fullscreenContainer.addEventListener('touchend', (e) => {
-            if (e.touches.length === 0) {
-                state.panning = false;
-                if (state.scale < 1.1) {
-                    resetZoom();
-                }
-            }
-        });
-
-        // --- 3. Mouse Tekerleği (Wheel) ile Zoom - Masaüstü ---
+        // --- 3. Mouse Tekerleği (Wheel) ile Zoom ---
         fullscreenContainer.addEventListener('wheel', (e) => {
-            e.preventDefault(); // Sayfanın scroll olmasını engelle
+            e.preventDefault();
+            fullscreenImg.style.transition = 'none'; // Seri zoom için kapat
 
-            // Yukarı çevirince (negatif delta) zoom yap, aşağı çevirince uzaklaş
             const zoomFactor = 0.1;
             const direction = e.deltaY < 0 ? 1 : -1;
-            
             let newScale = state.scale + (direction * zoomFactor * state.scale);
 
-            // Sınırlandırma
             newScale = Math.min(Math.max(minScale, newScale), maxScale);
 
-            // DÜZELTME: Zoom 1'in altına veya 1'e inerse tamamen sıfırla (pozisyon dahil)
             if (newScale <= 1) {
                 resetZoom();
             } else {
@@ -784,12 +790,13 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }, { passive: false });
 
-        // --- 4. Mouse Sürükleme (Pan) - Masaüstü (DÜZELTİLDİ) ---
+        // --- 4. Mouse Sürükleme (Pan) ---
         let isMouseDown = false;
 
         fullscreenContainer.addEventListener('mousedown', (e) => {
             if (state.scale > 1) {
-                e.preventDefault(); // ÖNEMLİ: Tarayıcının varsayılan sürükleme işlemini durdur
+                e.preventDefault();
+                fullscreenImg.style.transition = 'none'; // Sürüklerken transition yok
                 isMouseDown = true;
                 state.startX = e.clientX - state.pointX;
                 state.startY = e.clientY - state.pointY;
@@ -810,6 +817,8 @@ document.addEventListener('DOMContentLoaded', function() {
             if (isMouseDown) {
                 isMouseDown = false;
                 fullscreenContainer.style.cursor = 'default';
+                // Bırakınca yumuşaklık geri gelsin
+                fullscreenImg.style.transition = 'transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
             }
         };
 
