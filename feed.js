@@ -1,6 +1,6 @@
-// feed.js - FINAL SÜRÜM (Hayalet Avatar Destekli)
+// feed.js - FINAL SÜRÜM (Mobil Uyumlu + Yüksek Kalite + Hata Korumalı)
 document.addEventListener('DOMContentLoaded', function() {
-    console.log("Feed.js: Sistem Başlatıldı - Hayalet Avatar Destekli");
+    console.log("Feed.js: Sistem Başlatıldı - Premium Kalite Ayarları Aktif");
 
     const imageFeed = document.getElementById('image-feed');
     const sharePostBtn = document.getElementById('share-post-btn');
@@ -21,6 +21,51 @@ document.addEventListener('DOMContentLoaded', function() {
         search: ''
     };
 
+    // --- YARDIMCI: GÖRSEL SIKIŞTIRMA VE KALİTE FONKSİYONU ---
+    // En iyi denge: 1200px genişlik ve %80 kalite.
+    function compressImage(base64Str, maxWidth = 1200, maxHeight = 1200) {
+        return new Promise((resolve) => {
+            let img = new Image();
+            img.src = base64Str;
+            img.onload = () => {
+                let canvas = document.createElement('canvas');
+                let width = img.width;
+                let height = img.height;
+
+                // Oranları koruyarak boyutlandırma
+                if (width > height) {
+                    if (width > maxWidth) {
+                        height *= maxWidth / width;
+                        width = maxWidth;
+                    }
+                } else {
+                    if (height > maxHeight) {
+                        width *= maxHeight / height;
+                        height = maxHeight;
+                    }
+                }
+                
+                canvas.width = width;
+                canvas.height = height;
+                let ctx = canvas.getContext('2d');
+
+                // KALİTE AYARLARI: Pürüzsüzleştirme açıldı
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+                
+                ctx.drawImage(img, 0, 0, width, height);
+                
+                // JPEG formatında %80 kalite (0.8) ile sıkıştır
+                // Bu ayar 3-4 MB'lık bir fotoğrafı ~300KB'a düşürür ama netliği korur.
+                resolve(canvas.toDataURL('image/jpeg', 0.8)); 
+            };
+            img.onerror = (err) => {
+                console.error("Görsel işleme hatası:", err);
+                resolve(base64Str); // Hata olursa orjinalini döndür
+            };
+        });
+    }
+
     // --- 1. VERİTABANI BAĞLANTISI ---
     function initFeed() {
         if (!imageFeed || !window.db) return;
@@ -29,7 +74,7 @@ document.addEventListener('DOMContentLoaded', function() {
             imageFeed.innerHTML = `
                 <div class="feed-loading">
                     <div class="feed-spinner"></div>
-                    <p>Akış yenileniyor...</p>
+                    <p>Akış güncelleniyor...</p>
                 </div>
             `;
         }
@@ -37,15 +82,16 @@ document.addEventListener('DOMContentLoaded', function() {
         window.db.collection("posts")
             .orderBy("timestamp", "desc")
             .onSnapshot((snapshot) => {
-                // Veriyi güncelle
                 rawPosts = snapshot.docs.map(doc => {
                     const data = doc.data();
                     return { ...data, id: doc.id };
                 });
-                // Arayüzü güncelle
                 renderFilteredFeed();
             }, (error) => {
                 console.error("Veri çekme hatası:", error);
+                if (imageFeed.querySelector('.feed-loading')) {
+                    imageFeed.innerHTML = '<div class="empty-state"><i class="fas fa-wifi"></i><p>Bağlantı sorunu.</p></div>';
+                }
             });
     }
 
@@ -109,18 +155,16 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
 
-        // DOM GÜNCELLEME (DIFFING)
+        // DOM GÜNCELLEME
         const loading = imageFeed.querySelector('.feed-loading');
         if (loading) loading.remove();
 
-        // Fazlalıkları sil
         const currentElements = Array.from(imageFeed.children).filter(el => el.classList.contains('image-card'));
         const newIds = processedPosts.map(p => p.id);
         currentElements.forEach(el => {
             if (!newIds.includes(el.dataset.postId)) el.remove();
         });
 
-        // Boş durum kontrolü
         if (processedPosts.length === 0) {
             if (!imageFeed.querySelector('.empty-state')) {
                 imageFeed.innerHTML = `
@@ -136,7 +180,6 @@ document.addEventListener('DOMContentLoaded', function() {
             if (emptyState) emptyState.remove();
         }
 
-        // Ekle veya Güncelle
         processedPosts.forEach((post, index) => {
             let existingEl = imageFeed.querySelector(`.image-card[data-post-id="${post.id}"]`);
 
@@ -159,7 +202,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // --- 4. KART GÜNCELLEME ---
     function updatePostElement(element, post, currentUser) {
-        // Beğeni Durumu
         const isLikedByMe = post.likedBy && currentUser && post.likedBy.includes(currentUser.uid);
         const likeBtn = element.querySelector('.like-post-btn');
         if (likeBtn) {
@@ -180,52 +222,38 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
         
-        // --- PROFİL FOTOĞRAFI GÜNCELLEMESİ (HAYALET AVATAR MANTIĞI) ---
+        // Avatar Güncelleme
         const avatarEl = element.querySelector('.user-avatar');
         if (avatarEl) {
             avatarEl.style.display = 'flex';
             avatarEl.style.alignItems = 'center';
             avatarEl.style.justifyContent = 'center';
-            avatarEl.innerHTML = ''; // Temizle
+            avatarEl.innerHTML = '';
 
-            // 1. Kendi postum ise -> LocalStorage'dan al
+            let userPic = post.userProfilePic;
             if (currentUser && post.username === currentUser.username) {
-                if (currentUser.profilePic) {
-                    avatarEl.style.backgroundImage = `url('${currentUser.profilePic}')`;
-                    avatarEl.style.backgroundSize = 'cover';
-                    avatarEl.style.backgroundPosition = 'center';
-                    avatarEl.style.backgroundColor = 'transparent';
-                } else {
-                    // Kendi postum ama resmim yok -> Hayalet
-                    avatarEl.style.backgroundImage = 'none';
-                    avatarEl.style.backgroundColor = '#e1e1e1';
-                    avatarEl.innerHTML = '<i class="fas fa-user" style="color: #999; font-size: 18px;"></i>';
-                }
-            } 
-            // 2. Başkasının postu ise -> Veritabanından gelen bilgi
-            else {
-                if (post.userProfilePic) {
-                    avatarEl.style.backgroundImage = `url('${post.userProfilePic}')`;
-                    avatarEl.style.backgroundSize = 'cover';
-                    avatarEl.style.backgroundPosition = 'center';
-                    avatarEl.style.backgroundColor = 'transparent';
-                } else {
-                    // Resmi yok -> Hayalet
-                    avatarEl.style.backgroundImage = 'none';
-                    avatarEl.style.backgroundColor = '#e1e1e1';
-                    avatarEl.innerHTML = '<i class="fas fa-user" style="color: #999; font-size: 18px;"></i>';
-                }
+                userPic = currentUser.profilePic;
+            }
+
+            if (userPic) {
+                avatarEl.style.backgroundImage = `url('${userPic}')`;
+                avatarEl.style.backgroundSize = 'cover';
+                avatarEl.style.backgroundPosition = 'center';
+                avatarEl.style.backgroundColor = 'transparent';
+            } else {
+                avatarEl.style.backgroundImage = 'none';
+                avatarEl.style.backgroundColor = '#e1e1e1';
+                avatarEl.innerHTML = '<i class="fas fa-user" style="color: #999; font-size: 18px;"></i>';
             }
         }
 
-        // Tartışma Butonu
+        // Tartışma Güncelleme
         const commentCount = post.comments ? post.comments.length : 0;
         const discBtn = element.querySelector('.toggle-comments-btn');
         if (discBtn && !discBtn.innerHTML.includes(`(${commentCount})`)) {
              discBtn.innerHTML = `<i class="far fa-comments"></i> Tartışma (${commentCount})`;
         }
 
-        // Yorumlar Listesi
         const commentsList = element.querySelector('.comments-list');
         const commentsContainer = element.querySelector('.comments-container');
         
@@ -264,27 +292,17 @@ document.addEventListener('DOMContentLoaded', function() {
             contentHtml = `<img src="${post.image}" class="card-image" loading="lazy" alt="Gönderi görseli">`;
         }
 
-        // --- PROFİL FOTOĞRAFI HAZIRLIĞI (HAYALET AVATAR) ---
         let avatarStyle = 'display: flex; align-items: center; justify-content: center;';
         let avatarContent = '';
+        let userPic = post.userProfilePic;
         
-        // 1. Kendi gönderim ise
-        if (isOwnPost) {
-            if (currentUser.profilePic) {
-                avatarStyle += `background: url('${currentUser.profilePic}') center/cover no-repeat;`;
-            } else {
-                avatarStyle += `background: #e1e1e1;`;
-                avatarContent = `<i class="fas fa-user" style="color: #999; font-size: 18px;"></i>`;
-            }
-        }
-        // 2. Başkasının gönderisi ise
-        else {
-            if (post.userProfilePic) {
-                avatarStyle += `background: url('${post.userProfilePic}') center/cover no-repeat;`;
-            } else {
-                avatarStyle += `background: #e1e1e1;`;
-                avatarContent = `<i class="fas fa-user" style="color: #999; font-size: 18px;"></i>`;
-            }
+        if (isOwnPost && currentUser.profilePic) userPic = currentUser.profilePic;
+        
+        if (userPic) {
+            avatarStyle += `background: url('${userPic}') center/cover no-repeat;`;
+        } else {
+            avatarStyle += `background: #e1e1e1;`;
+            avatarContent = `<i class="fas fa-user" style="color: #999; font-size: 18px;"></i>`;
         }
 
         div.innerHTML = `
@@ -324,7 +342,6 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
         `;
 
-        // --- EVENT LISTENERS ---
         const delBtn = div.querySelector('.delete-post-btn');
         if(delBtn) delBtn.addEventListener('click', (e) => { e.preventDefault(); deletePost(post.id); });
 
@@ -371,7 +388,6 @@ document.addEventListener('DOMContentLoaded', function() {
         return div;
     }
 
-    // --- HTML RENDER YARDIMCILARI ---
     function renderCommentsHTML(comments, currentUser) {
         if (!comments || comments.length === 0) return '<div style="text-align:center; color:var(--text-light); font-size:13px; padding:20px;">Henüz yorum yok. İlk yorumu sen yap!</div>';
         return comments.slice().reverse().map(c => {
@@ -400,21 +416,16 @@ document.addEventListener('DOMContentLoaded', function() {
         }).join('');
     }
 
-    // --- ENTEGRASYON VE DIŞA AÇILIM ---
     window.updateFeedFilters = function(newFilters) {
         activeFilters = { ...activeFilters, ...newFilters };
         renderFilteredFeed();
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    // Bu fonksiyon diğer dosyalardan (örn: profil güncellenince) çağrılabilir
     window.loadImageFeed = function() {
-        console.log("Feed yenileniyor...");
         renderFilteredFeed();
     };
 
-    // --- VERİTABANI İŞLEMLERİ ---
-    
     function togglePostLike(postId) {
         const user = getCurrentUserOrAlert();
         if(!user) return;
@@ -554,6 +565,20 @@ document.addEventListener('DOMContentLoaded', function() {
                 sharePostBtn.textContent = 'Paylaş';
                 sharePostBtn.disabled = false;
                 showNotification('Paylaşıldı!', 'success');
+            }).catch((error) => {
+                console.error("Paylaşım hatası:", error);
+                
+                let errorMsg = "Bir hata oluştu.";
+                // Firestore limit hatasını yakala
+                if (error.message && error.message.includes("document is larger than")) {
+                    errorMsg = "Görsel boyutu çok büyük!";
+                } else if (error.code === 'resource-exhausted') {
+                    errorMsg = "Sunucu kotası aşıldı.";
+                }
+
+                showNotification(errorMsg, 'error');
+                sharePostBtn.textContent = 'Paylaş';
+                sharePostBtn.disabled = false;
             });
         });
     }
@@ -561,15 +586,33 @@ document.addEventListener('DOMContentLoaded', function() {
     if (imageUploadArea) {
         imageUploadArea.addEventListener('click', () => {
             const input = document.createElement('input');
-            input.type = 'file'; input.accept = 'image/*';
+            input.type = 'file'; 
+            input.accept = 'image/*';
+            
             input.onchange = (e) => {
                 if (e.target.files && e.target.files[0]) {
+                    const file = e.target.files[0];
                     const reader = new FileReader();
+                    
+                    // Görsel seçilince kullanıcıya önizleme göster (İşleniyor efekti)
+                    if(imagePreview) {
+                        imagePreview.style.display = 'block';
+                        imagePreview.style.opacity = '0.5'; 
+                    }
+
                     reader.onload = (ev) => {
-                        selectedImage = ev.target.result;
-                        if(imagePreview) { imagePreview.src = selectedImage; imagePreview.style.display = 'block'; }
+                        const originalBase64 = ev.target.result;
+                        // Kaliteli sıkıştırma başlat
+                        compressImage(originalBase64).then(compressedBase64 => {
+                            selectedImage = compressedBase64;
+                            if(imagePreview) {
+                                imagePreview.style.opacity = '1';
+                                imagePreview.src = compressedBase64; 
+                            }
+                            console.log("Görsel işlendi. Hazır.");
+                        });
                     };
-                    reader.readAsDataURL(e.target.files[0]);
+                    reader.readAsDataURL(file);
                 }
             };
             input.click();
