@@ -1,6 +1,6 @@
 // feed.js - KALICI ZOOM, TEK PARMAK GEZİNME VE PINCH DÜZELTMESİ
 document.addEventListener('DOMContentLoaded', function() {
-    console.log("Feed.js: Sistem Başlatıldı - Kalıcı Zoom v2 Aktif");
+    console.log("Feed.js: Sistem Başlatıldı");
 
     const imageFeed = document.getElementById('image-feed');
     const sharePostBtn = document.getElementById('share-post-btn');
@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     let selectedImage = null;
     let openDiscussionIds = new Set(); 
+    let justCommentedPostId = null; // YENİ: Son yorum yapılan gönderi takibi
 
     // --- GLOBAL DEĞİŞKENLER ---
     let rawPosts = []; 
@@ -257,7 +258,14 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (commentsList.innerHTML !== newCommentsHTML) {
                 commentsList.innerHTML = newCommentsHTML;
-                commentsContainer.scrollTop = oldScrollTop;
+                
+                // YENİ: Eğer bu gönderiye az önce yorum yapıldıysa en alta kaydır
+                if (justCommentedPostId === post.id) {
+                    commentsContainer.scrollTop = commentsContainer.scrollHeight;
+                    justCommentedPostId = null; // İşaretçiyi sıfırla
+                } else {
+                    commentsContainer.scrollTop = oldScrollTop;
+                }
             }
         }
     }
@@ -400,7 +408,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function renderCommentsHTML(comments, currentUser) {
         if (!comments || comments.length === 0) return '<div style="text-align:center; color:var(--text-light); font-size:13px; padding:20px;">Henüz yorum yok. İlk yorumu sen yap!</div>';
-        return comments.slice().reverse().map(c => {
+        
+        // Kronolojik sıra için .reverse() kaldırıldı.
+        return comments.map(c => {
             const isMyComment = currentUser && currentUser.username === c.username;
             const isLiked = c.likedBy && currentUser && c.likedBy.includes(currentUser.uid);
             const likeClass = isLiked ? 'active' : '';
@@ -495,10 +505,14 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // YENİ: Yorum gönderildiğinde flag'i işaretle
     function sendComment(postId, text) {
         if (!text.trim()) { showNotification('Boş yorum gönderilemez.', 'error'); return; }
         const user = getCurrentUserOrAlert();
         if(!user) return;
+        
+        // İşaretçiyi ayarla
+        justCommentedPostId = postId;
         
         const newComment = { id: Date.now().toString(), username: user.username, text: text, timestamp: new Date().toISOString(), likes: 0, likedBy: [] };
         window.db.collection("posts").doc(postId).update({ comments: firebase.firestore.FieldValue.arrayUnion(newComment) })
