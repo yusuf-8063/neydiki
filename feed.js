@@ -1,6 +1,6 @@
-// feed.js - HİBRİT SIRALAMA + AKILLI KAPSAYICI DESTEKLİ (GÜNCEL)
+// feed.js - MASAÜSTÜ SCROLL RESET + SÜRÜKLEME + MOBİL ZOOM (FINAL v3)
 document.addEventListener('DOMContentLoaded', function() {
-    console.log("Feed.js: Sistem Başlatıldı - Premium Kalite ve Akıllı Kapsayıcı Aktif");
+    console.log("Feed.js: Sistem Başlatıldı - Scroll Reset Aktif");
 
     const imageFeed = document.getElementById('image-feed');
     const sharePostBtn = document.getElementById('share-post-btn');
@@ -142,14 +142,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 case 'oldest': return dateA - dateB;
                 case 'most-liked': return likesB - likesA;
                 case 'most-commented': return commentsB - commentsA;
-                
-                // HİBRİT SIRALAMA
                 case 'hybrid': 
                     const scoreA = likesA + commentsA;
                     const scoreB = likesB + commentsB;
                     if (scoreB === scoreA) return dateB - dateA;
                     return scoreB - scoreA;
-
                 case 'newest': default: return dateB - dateA;
             }
         });
@@ -265,7 +262,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // --- 5. YENİ KART OLUŞTURUCU (GÜNCELLENDİ: TAM EKRAN DESTEKLİ) ---
+    // --- 5. YENİ KART OLUŞTURUCU ---
     function createPostElement(post, currentUser) {
         const div = document.createElement('div');
         div.className = 'image-card';
@@ -344,17 +341,16 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
         `;
 
-        // --- TAM EKRAN TIKLAMA OLAYI (BURASI EKLENDİ) ---
+        // --- TAM EKRAN TIKLAMA OLAYI ---
         const postImage = div.querySelector('.card-image');
         if (postImage && post.imageType !== 'none') {
-            postImage.style.cursor = 'zoom-in';
             postImage.addEventListener('click', (e) => {
                 e.stopPropagation();
                 e.preventDefault();
                 openFullscreenImage(post.image);
             });
         }
-        // ------------------------------------------------
+        // -------------------------------
 
         const delBtn = div.querySelector('.delete-post-btn');
         if(delBtn) delBtn.addEventListener('click', (e) => { e.preventDefault(); deletePost(post.id); });
@@ -537,7 +533,6 @@ document.addEventListener('DOMContentLoaded', function() {
         return user;
     }
 
-    // --- PAYLAŞIM ---
     if (sharePostBtn) {
         sharePostBtn.addEventListener('click', () => {
             const caption = document.getElementById('post-caption').value;
@@ -613,28 +608,53 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // --- TAM EKRAN GÖRSEL FONKSİYONLARI ---
+    // --- GELİŞMİŞ TAM EKRAN GÖRSEL & ZOOM SİSTEMİ (Masaüstü & Mobil) ---
     const fullscreenViewer = document.getElementById('fullscreen-viewer');
     const fullscreenImg = document.getElementById('fullscreen-image');
     const closeFullscreenBtn = document.getElementById('close-fullscreen-btn');
     const fullscreenContainer = document.getElementById('fullscreen-img-container');
 
+    // Zoom Durum Değişkenleri
+    let state = {
+        scale: 1,
+        panning: false,
+        pointX: 0,
+        pointY: 0,
+        startX: 0,
+        startY: 0
+    };
+
+    // Ayarlar
+    const minScale = 1;
+    const maxScale = 5; // Maksimum zoom seviyesi
+
     function openFullscreenImage(src) {
         if (!fullscreenViewer || !fullscreenImg) return;
         fullscreenImg.src = src;
         fullscreenViewer.classList.add('active');
-        document.body.style.overflow = 'hidden'; 
-        if(fullscreenContainer) fullscreenContainer.classList.remove('zoomed');
+        document.body.style.overflow = 'hidden'; // Arka planı kilitle
+        resetZoom();
     }
 
     function closeFullscreenImage() {
         if (!fullscreenViewer) return;
         fullscreenViewer.classList.remove('active');
         document.body.style.overflow = 'auto'; 
-        if(fullscreenContainer) fullscreenContainer.classList.remove('zoomed');
         setTimeout(() => { if(fullscreenImg) fullscreenImg.src = ''; }, 300);
     }
 
+    function resetZoom() {
+        state = { scale: 1, panning: false, pointX: 0, pointY: 0, startX: 0, startY: 0 };
+        updateTransform();
+    }
+
+    function updateTransform() {
+        if(fullscreenImg) {
+            fullscreenImg.style.transform = `translate(${state.pointX}px, ${state.pointY}px) scale(${state.scale})`;
+        }
+    }
+
+    // Event Listeners (Kapatma)
     if (closeFullscreenBtn) {
         closeFullscreenBtn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -643,24 +663,158 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     if (fullscreenViewer) {
+        // Siyah alana tıklayınca kapat (sürükleme veya zoom yoksa)
         fullscreenViewer.addEventListener('click', (e) => {
-            if (e.target === fullscreenViewer || e.target === fullscreenContainer) {
-                closeFullscreenImage();
-            }
-        });
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && fullscreenViewer.classList.contains('active')) {
-                closeFullscreenImage();
+            if (state.scale === 1 && !state.panning) {
+                if (e.target === fullscreenViewer || e.target === fullscreenContainer) {
+                    closeFullscreenImage();
+                }
             }
         });
     }
 
-    if (fullscreenContainer) {
-        fullscreenContainer.addEventListener('click', (e) => {
-            if (e.target !== closeFullscreenBtn) {
-                fullscreenContainer.classList.toggle('zoomed');
+    if (fullscreenContainer && fullscreenImg) {
+        
+        // --- 1. Çift Tıklama (Zoom In/Out) - Mobil ve Desktop ---
+        let lastTap = 0;
+        
+        // Mobil Çift Tıklama
+        fullscreenContainer.addEventListener('touchend', function (e) {
+            const currentTime = new Date().getTime();
+            const tapLength = currentTime - lastTap;
+            if (tapLength < 300 && tapLength > 0 && e.touches.length === 0) {
+                e.preventDefault();
+                if (state.scale > 1) {
+                    resetZoom();
+                } else {
+                    state.scale = 2;
+                    state.pointX = 0;
+                    state.pointY = 0;
+                    updateTransform();
+                }
+            }
+            lastTap = currentTime;
+        });
+
+        // Masaüstü Çift Tıklama
+        fullscreenContainer.addEventListener('dblclick', (e) => {
+            if (state.scale > 1) {
+                resetZoom();
+            } else {
+                state.scale = 2;
+                updateTransform();
             }
         });
+
+        // --- 2. Dokunmatik Hareketler (Pinch & Pan) - Mobil ---
+        let initialPinchDistance = 0;
+        let initialScale = 1;
+
+        fullscreenContainer.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 2) {
+                // İki parmak: Zoom başlat
+                state.panning = false;
+                initialPinchDistance = Math.hypot(
+                    e.touches[0].pageX - e.touches[1].pageX,
+                    e.touches[0].pageY - e.touches[1].pageY
+                );
+                initialScale = state.scale;
+            } else if (e.touches.length === 1) {
+                // Tek parmak: Pan (Kaydırma) başlat (Eğer zoom yapılmışsa)
+                state.panning = true;
+                state.startX = e.touches[0].pageX - state.pointX;
+                state.startY = e.touches[0].pageY - state.pointY;
+            }
+        });
+
+        fullscreenContainer.addEventListener('touchmove', (e) => {
+            e.preventDefault(); // Sayfa kaymasını engelle
+
+            if (e.touches.length === 2) {
+                // Pinch (Kıstırma) hareketi
+                const currentDistance = Math.hypot(
+                    e.touches[0].pageX - e.touches[1].pageX,
+                    e.touches[0].pageY - e.touches[1].pageY
+                );
+
+                if (initialPinchDistance > 0) {
+                    const diff = currentDistance / initialPinchDistance;
+                    let newScale = initialScale * diff;
+                    newScale = Math.min(Math.max(minScale, newScale), maxScale);
+                    
+                    state.scale = newScale;
+                    updateTransform();
+                }
+            } else if (e.touches.length === 1 && state.panning && state.scale > 1) {
+                // Pan (Kaydırma) hareketi
+                state.pointX = e.touches[0].pageX - state.startX;
+                state.pointY = e.touches[0].pageY - state.startY;
+                updateTransform();
+            }
+        });
+
+        fullscreenContainer.addEventListener('touchend', (e) => {
+            if (e.touches.length === 0) {
+                state.panning = false;
+                if (state.scale < 1.1) {
+                    resetZoom();
+                }
+            }
+        });
+
+        // --- 3. Mouse Tekerleği (Wheel) ile Zoom - Masaüstü ---
+        fullscreenContainer.addEventListener('wheel', (e) => {
+            e.preventDefault(); // Sayfanın scroll olmasını engelle
+
+            // Yukarı çevirince (negatif delta) zoom yap, aşağı çevirince uzaklaş
+            const zoomFactor = 0.1;
+            const direction = e.deltaY < 0 ? 1 : -1;
+            
+            let newScale = state.scale + (direction * zoomFactor * state.scale);
+
+            // Sınırlandırma
+            newScale = Math.min(Math.max(minScale, newScale), maxScale);
+
+            // DÜZELTME: Zoom 1'in altına veya 1'e inerse tamamen sıfırla (pozisyon dahil)
+            if (newScale <= 1) {
+                resetZoom();
+            } else {
+                state.scale = newScale;
+                updateTransform();
+            }
+        }, { passive: false });
+
+        // --- 4. Mouse Sürükleme (Pan) - Masaüstü (DÜZELTİLDİ) ---
+        let isMouseDown = false;
+
+        fullscreenContainer.addEventListener('mousedown', (e) => {
+            if (state.scale > 1) {
+                e.preventDefault(); // ÖNEMLİ: Tarayıcının varsayılan sürükleme işlemini durdur
+                isMouseDown = true;
+                state.startX = e.clientX - state.pointX;
+                state.startY = e.clientY - state.pointY;
+                fullscreenContainer.style.cursor = 'grabbing';
+            }
+        });
+
+        fullscreenContainer.addEventListener('mousemove', (e) => {
+            if (isMouseDown && state.scale > 1) {
+                e.preventDefault();
+                state.pointX = e.clientX - state.startX;
+                state.pointY = e.clientY - state.startY;
+                updateTransform();
+            }
+        });
+
+        const stopDrag = () => {
+            if (isMouseDown) {
+                isMouseDown = false;
+                fullscreenContainer.style.cursor = 'default';
+            }
+        };
+
+        fullscreenContainer.addEventListener('mouseup', stopDrag);
+        fullscreenContainer.addEventListener('mouseleave', stopDrag);
     }
 
     initFeed();
