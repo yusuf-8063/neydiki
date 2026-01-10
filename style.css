@@ -1,4 +1,4 @@
-/* style.css - MOBİL TIKLAMA VE ANİMASYON EFEKTLERİ (NET HİS) - FINAL */
+/* style.css - FINAL SÜRÜM (AKILLI KAPSAYICI + EKRANA SIĞDIRMA) */
 
 /* --- TEMEL AYARLAR --- */
 * { 
@@ -9,14 +9,14 @@
     scrollbar-width: thin; 
     scrollbar-color: var(--primary) var(--background); 
     
-    /* Mobildeki varsayılan mavi tıklama kutusunu kaldırır, biz kendimiz ekleyeceğiz */
+    /* Mobildeki varsayılan mavi tıklama kutusunu kaldırır */
     -webkit-tap-highlight-color: transparent; 
 }
 
 :root {
     --primary: #0095f6;
     --primary-light: rgba(0, 149, 246, 0.1);
-    --primary-press: rgba(0, 149, 246, 0.25); /* Tıklama anı rengi */
+    --primary-press: rgba(0, 149, 246, 0.25);
     --background: #fafafa;
     --surface: #ffffff;
     --text: #262626;
@@ -26,7 +26,7 @@
     --shadow-strong: 0 8px 25px rgba(0, 0, 0, 0.15);
     --like-color: #ff3040;
     --like-light: rgba(255, 48, 64, 0.1);
-    --touch-overlay: rgba(0, 0, 0, 0.05); /* Genel dokunma karartısı */
+    --touch-overlay: rgba(0, 0, 0, 0.05);
 }
 
 [data-theme="dark"] {
@@ -42,7 +42,7 @@
     --shadow-strong: 0 8px 25px rgba(0, 0, 0, 0.4);
     --like-color: #ff3040;
     --like-light: rgba(255, 48, 64, 0.2);
-    --touch-overlay: rgba(255, 255, 255, 0.1); /* Karanlık mod için dokunma parlaması */
+    --touch-overlay: rgba(255, 255, 255, 0.1);
 }
 
 body {
@@ -55,7 +55,6 @@ body {
 }
 
 /* --- TIKLAMA GEÇİŞ AYARLARI --- */
-/* Tüm butonlar için ortak geçiş hızı */
 .action-btn, 
 .delete-post-btn, 
 .comment-like-btn, 
@@ -63,7 +62,6 @@ body {
 .close-btn,
 .nav-item,
 .nav-icon {
-    /* Basınca anında tepki ver (0.1s), bırakınca yumuşak dön */
     transition: transform 0.1s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.1s ease;
     cursor: pointer;
     background: none;
@@ -74,13 +72,13 @@ body {
 
 /* --- ANA YERLEŞİM --- */
 .main-content { 
-    max-width: 1400px; margin: 24px auto; padding: 0 16px;
+    max-width: 1400px; margin: 15px auto; padding: 0 16px;
     min-height: calc(100vh - 200px); transition: padding-left 0.3s ease;
 }
 
-.content-header { text-align: center; margin-bottom: 30px; padding: 0 20px; }
-.content-header h2 { font-size: 28px; font-weight: 700; margin-bottom: 8px; color: var(--text); }
-.content-header p { font-size: 16px; color: var(--text-light); }
+.content-header { text-align: center; margin-bottom: 20px; padding: 0 20px; }
+.content-header h2 { font-size: 26px; font-weight: 700; margin-bottom: 5px; color: var(--text); }
+.content-header p { font-size: 15px; color: var(--text-light); }
 
 .home-content-wrapper { display: flex; gap: 30px; align-items: flex-start; max-width: 1400px; margin: 0 auto; justify-content: center; position: relative; }
 .home-main-content { flex: 1; min-width: 0; width: 100%; }
@@ -94,61 +92,103 @@ body {
     position: relative; z-index: 1;
 }
 
-/* Sadece Masaüstünde Hover Çalışsın */
 @media (hover: hover) {
     .image-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-strong); }
 }
 
-.card-header { display: flex; align-items: center; padding: 16px; gap: 12px; position: relative; }
-.user-avatar { width: 40px; height: 40px; border-radius: 50%; background-color: #f0f0f0; background-size: cover; background-position: center; border: 1px solid var(--border); }
+.card-header { display: flex; align-items: center; padding: 12px 16px; gap: 12px; position: relative; }
+.user-avatar { width: 36px; height: 36px; border-radius: 50%; background-color: #f0f0f0; background-size: cover; background-position: center; border: 1px solid var(--border); }
 .user-avatar.large { width: 80px; height: 80px; }
 .user-info { flex: 1; }
-.username { font-weight: 600; font-size: 14px; margin-bottom: 2px; color: var(--text); }
-.post-time { font-size: 12px; color: var(--text-light); }
-.card-image { width: 100%; height: auto !important; display: block; background-color: transparent; object-fit: contain; margin: 0; border: none; }
-.card-content { padding: 16px; }
+.username { font-weight: 600; font-size: 14px; margin-bottom: 1px; color: var(--text); }
+.post-time { font-size: 11px; color: var(--text-light); }
+
+/* --- GÜNCELLENEN KISIM: EKRANA SIĞDIRMA --- */
+.post-media-container {
+    position: relative;
+    width: 100%;
+    background-color: var(--surface);
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    
+    /* Pixels yerine vh (ekran yüzdesi) - Dikeyde %60'ı geçmesin */
+    max-height: 60vh; 
+    min-height: 250px; 
+}
+
+/* Arkadaki bulanık efekt */
+.media-blur-bg {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-size: cover;
+    background-position: center;
+    filter: blur(25px) brightness(0.5);
+    transform: scale(1.2); 
+    z-index: 0;
+    opacity: 0.8;
+}
+
+[data-theme="dark"] .media-blur-bg {
+    opacity: 0.6;
+}
+
+/* Asıl Görsel */
+.card-image {
+    position: relative;
+    z-index: 1;
+    display: block;
+    
+    /* Container limitlerine uy */
+    max-width: 100%;
+    max-height: 60vh; /* Container ile aynı limit */
+    width: auto !important; 
+    height: auto !important;
+    
+    object-fit: contain; 
+    box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+    margin: 0;
+    border: none;
+}
+/* ------------------------------------------- */
+
+.card-content { padding: 12px 16px; }
 .card-content p { font-size: 14px; line-height: 1.4; color: var(--text); }
 
-/* --- AKSİYON BUTONLARI (BEĞENİ, YORUM) --- */
+/* --- AKSİYON BUTONLARI --- */
 .image-actions {
     display: flex; justify-content: space-between; align-items: center;
-    padding: 12px 16px; border-bottom: 1px solid var(--border); position: relative;
+    padding: 10px 16px; border-bottom: 1px solid var(--border); position: relative;
 }
 .image-actions::before { content: ''; position: absolute; top: 0; left: 16px; right: 16px; height: 1px; background-color: var(--primary); opacity: 0.8; border-radius: 2px; }
 
-.action-left { display: flex; align-items: center; gap: 15px; margin-top: 6px; }
+.action-left { display: flex; align-items: center; gap: 15px; margin-top: 4px; }
+.action-btn { color: var(--text-light); padding: 6px; border-radius: 8px; gap: 6px; font-size: 14px; }
 
-.action-btn { color: var(--text-light); padding: 8px; border-radius: 8px; gap: 6px; font-size: 14px; }
-
-/* Kalp Butonu Efektleri */
 .like-post-btn.active { color: var(--like-color) !important; background-color: var(--like-light) !important; }
 .like-post-btn.active i { animation: likeBounce 0.4s; }
 
-/* MASAÜSTÜ HOVER */
 @media (hover: hover) {
     .like-post-btn:hover { background-color: var(--like-light); color: var(--like-color); }
     .action-btn:hover { background-color: var(--touch-overlay); color: var(--text); }
 }
 
-/* MOBİL TIKLAMA (ACTIVE) - Hisli Tıklama */
 .like-post-btn:active { transform: scale(0.92); background-color: var(--like-light) !important; }
 .action-btn:active { transform: scale(0.92); background-color: var(--touch-overlay) !important; }
 
 @keyframes likeBounce { 0% { transform: scale(1); } 50% { transform: scale(1.3); } 100% { transform: scale(1); } }
 
-/* Tartışma Butonu */
 .discussion-btn {
-    background: var(--primary); color: white; border: none; padding: 8px 16px;
-    border-radius: 20px; cursor: pointer; font-size: 14px; font-weight: 500;
+    background: var(--primary); color: white; border: none; padding: 6px 14px;
+    border-radius: 20px; cursor: pointer; font-size: 13px; font-weight: 500;
     display: flex; align-items: center; gap: 6px;
     transition: transform 0.1s ease, background-color 0.1s ease;
 }
 
 @media (hover: hover) { .discussion-btn:hover { background: #0081d6; } }
-/* Mobil Tıklama */
 .discussion-btn:active { transform: scale(0.95); background: #0077cc; }
 
-/* Silme Butonu */
 .delete-post-btn { color: var(--text-light); padding: 8px; border-radius: 8px; font-size: 16px; margin-left: auto; }
 @media (hover: hover) { .delete-post-btn:hover { background-color: rgba(255, 71, 87, 0.1); color: #ff4757; } }
 .delete-post-btn:active { transform: scale(0.92); background-color: rgba(255, 71, 87, 0.2); color: #ff4757; }
@@ -352,7 +392,11 @@ body {
     .filters-header { border-bottom: 1px solid var(--border); } .filters-scroll-content { padding: 20px; padding-top: 10px; }
     .filter-actions { padding: 15px 20px; padding-bottom: 70px !important; background-color: var(--surface); box-shadow: 0 -4px 15px rgba(0,0,0,0.1); position: relative; z-index: 20; }
     .mobile-filter-btn { display: flex; } .filters-container { padding: 0; } .content-header { padding: 0; }
-    .card-image { min-height: 250px; } 
+    
+    /* Mobilde serbest bırakılabilir */
+    .post-media-container { max-height: 500px; min-height: 250px; }
+    .card-image { max-height: 500px; }
+    
     .discussion-section.expanded { max-height: 500px; } .comments-container { max-height: 300px; padding: 12px; } .add-comment { padding: 12px; }
     .image-actions { padding: 8px 12px; } .action-btn, .discussion-btn { font-size: 12px; }
     .action-btn, .delete-post-btn, .comment-like-btn, .comment-delete-btn { padding: 6px; }
@@ -363,7 +407,7 @@ body {
     .modal-content { margin-bottom: 30px; max-height: 85vh; overflow-y: auto; }
 }
 @media (max-width: 480px) {
-    .main-content { padding: 0 12px; margin: 10px auto; } .card-image { min-height: 200px; }
+    .main-content { padding: 0 12px; margin: 10px auto; } 
     .discussion-section.expanded { max-height: 400px; } .comments-container { max-height: 250px; padding: 10px; } .add-comment { padding: 10px; flex-wrap: wrap; }
     #comment-input { padding: 10px 14px; font-size: 16px; flex: 1; min-width: 0; }
     .action-left { gap: 8px; } .mobile-filter-btn { padding: 10px 16px; font-size: 14px; }
