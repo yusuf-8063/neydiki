@@ -1,4 +1,4 @@
-/* style.css - FINAL: HEPSİNDE KIRMIZI KAPATMA BUTONLARI */
+/* style.css - FINAL: OTO YÜKSEKLİK VE MAX ALAN AYARLI */
 
 /* --- TEMEL AYARLAR --- */
 * { 
@@ -472,12 +472,13 @@ body {
 @media (min-width: 1024px) { .main-content { padding-left: 160px; } }
 @media (max-width: 1200px) { .home-content-wrapper { gap: 20px; } .filters-sidebar { width: 280px; } }
 @media (max-width: 1024px) { .main-content { max-width: 100%; padding: 0 20px; } .filters-sidebar { width: 260px; padding: 20px; } .home-content-wrapper { gap: 15px; } }
+
+/* --- MOBİL UYUMLULUK VE YÜKSEKLİK AYARLARI --- */
 @media (max-width: 768px) {
     body { padding-bottom: 120px; } 
     .home-content-wrapper { flex-direction: column; gap: 0; } .home-main-content { padding-bottom: 20px; }
     .filters-sidebar { width: 100%; position: fixed; top: 0; left: 0; right: 0; bottom: 0; height: 100% !important; max-height: none; z-index: 300; border-radius: 0; border: none; transform: translateX(100%); transition: transform 0.3s ease; display: none; }
     
-    /* DÜZELTME: Mobilde filtre kapatma butonunu görünür yap */
     #close-filters { display: flex; }
     
     .filters-sidebar.active { display: flex; transform: translateX(0); }
@@ -485,9 +486,23 @@ body {
     .filter-actions { padding: 15px 20px; padding-bottom: 70px !important; background-color: var(--surface); box-shadow: 0 -4px 15px rgba(0,0,0,0.1); position: relative; z-index: 20; }
     .mobile-filter-btn { display: flex; } .filters-container { padding: 0; } .content-header { padding: 0; }
     
-    .post-media-container { max-height: 500px; min-height: 250px; }
-    .card-image { max-height: 500px; }
-    .discussion-section.expanded { max-height: 500px; } .comments-container { max-height: 300px; padding: 12px; } .add-comment { padding: 12px; }
+    /* GÜNCEL YÜKSEKLİK AYARLARI - MOBİL OTO */
+    .post-media-container { 
+        max-height: 600px; 
+        min-height: auto; /* Zorunlu min yükseklik kalktı */
+        height: auto;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: transparent !important; /* Arkaplanı temizle */
+    }
+    .card-image { 
+        max-height: 600px;
+        height: auto !important;
+        object-fit: contain;
+    }
+    
+    .discussion-section.expanded { max-height: 600px; } .comments-container { max-height: 300px; padding: 12px; } .add-comment { padding: 12px; }
     .image-actions { padding: 8px 12px; } .action-btn, .discussion-btn { font-size: 12px; }
     .action-btn, .delete-post-btn, .comment-like-btn, .comment-delete-btn { padding: 6px; }
     .discussion-btn { padding: 6px 12px; }
@@ -504,6 +519,12 @@ body {
     .filter-actions { flex-direction: row; gap: 10px; } .filter-btn { padding: 12px; }
     .content-header h2 { font-size: 24px; } .content-header p { font-size: 14px; }
     .no-image-post { min-height: 200px; } .no-image-icon { font-size: 36px; margin-bottom: 12px; } .no-image-text { font-size: 13px; }
+    
+    /* En küçük ekran için de sınır koru ama auto yap */
+    .card-image { 
+        max-height: 500px;
+        height: auto !important;
+    }
 }
 
 .discussion-modal-content { padding: 0 !important; max-width: 500px !important; width: 95% !important; max-height: 85vh !important; overflow: hidden !important; display: flex; flex-direction: column; }
