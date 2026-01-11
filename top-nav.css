@@ -1,5 +1,4 @@
 /* top-nav.css - MOBİL İÇİN HIZLI TEPKİ - FINAL */
-
 .top-nav {
     display: flex; justify-content: space-between;
     align-items: center; padding: 14px 20px;
@@ -13,12 +12,11 @@
 
 .logo { display: flex; align-items: center; height: 40px; }
 
-/* PERFORMANS: Aspect-ratio ile yer ayırma (CLS düzeltmesi) */
+/* LOGO DÜZELTMESİ: Aspect-ratio kaldırıldı */
 .logo-image { 
     height: 70px; 
     width: auto; 
     object-fit: contain; 
-    aspect-ratio: 120 / 40; /* Tarayıcının resmi indirmeden yerini ayırmasını sağlar */
 }
 
 .search-container { flex: 1; max-width: 500px; position: relative; }
