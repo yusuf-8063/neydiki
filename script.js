@@ -1,4 +1,4 @@
-// script.js - GÜNCELLENMİŞ (Başlık Düzeltildi)
+// script.js - BULANIKLIK DÜZELTMESİ (FADE OUT EKLENDİ)
 
 // Global değişkenler ve yardımcı fonksiyonlar
 function showNotification(message, type = 'info') {
@@ -27,12 +27,17 @@ function showNotification(message, type = 'info') {
 
 function openModal(modal) {
     if (modal) {
+        // YENİ: Açılmadan önce şeffaf yap
+        modal.style.opacity = '0';
         modal.style.display = 'flex';
         modal.setAttribute('aria-hidden', 'false');
         document.body.style.overflow = 'hidden';
         
-        // Animasyon için
+        // Animasyon için (Konteynerin de opaklığını artır)
         setTimeout(() => {
+            // YENİ: Arka planı yavaşça getir
+            modal.style.opacity = '1';
+            
             if (modal.querySelector('.modal-content')) {
                 modal.querySelector('.modal-content').style.transform = 'scale(1)';
                 modal.querySelector('.modal-content').style.opacity = '1';
@@ -54,6 +59,9 @@ function openModal(modal) {
 // GÜNCELLENEN KISIM: closeModal
 function closeModal(modal) {
     if (modal) {
+        // YENİ: Kapanırken arka planı/bulanıklığı soldur
+        modal.style.opacity = '0';
+
         if (modal.querySelector('.modal-content')) {
             modal.querySelector('.modal-content').style.transform = 'scale(0.9)';
             modal.querySelector('.modal-content').style.opacity = '0';
@@ -61,6 +69,8 @@ function closeModal(modal) {
         
         setTimeout(() => {
             modal.style.display = 'none';
+            // YENİ: Bir sonraki açılış için opacity'yi sıfırla (temizlik)
+            modal.style.opacity = ''; 
             modal.setAttribute('aria-hidden', 'true');
             document.body.style.overflow = 'auto';
 
@@ -75,7 +85,6 @@ function closeModal(modal) {
 }
 
 function updatePageTitle(title) {
-    // BURASI GÜNCELLENDİ: "Social" ifadesi kaldırıldı, yerine "NeydiKi?" getirildi.
     document.title = `${title} - NeydiKi?`;
     if (title === 'Ana Sayfa') {
         window.scrollTo({ top: 0, behavior: 'smooth' });
