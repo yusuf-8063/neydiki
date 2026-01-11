@@ -1,8 +1,7 @@
-// feed.js - GÜNCELLENMİŞ VERSİYON (WebP Otomatik Dönüşüm + Klavye Düzeltmesi)
+// feed.js - TAMAMEN DÜZELTİLMİŞ SÜRÜM
 document.addEventListener('DOMContentLoaded', function() {
-    console.log("Feed.js: Optimize Edilmiş Sürüm (Lazy Comments + Read More/Less + Auto Scroll + Accessibility + WebP + Keyboard Fix)");
-
-    // --- DİNAMİK CSS STİLLERİ (Yorum Kısaltma İçin) ---
+    
+    // --- DİNAMİK CSS STİLLERİ ---
     const style = document.createElement('style');
     style.textContent = `
         .comment-text.collapsed {
@@ -52,7 +51,7 @@ document.addEventListener('DOMContentLoaded', function() {
         search: ''
     };
 
-    // --- RESİM SIKIŞTIRMA VE WEBP DÖNÜŞTÜRME ---
+    // --- RESİM SIKIŞTIRMA ---
     function compressImage(base64Str, maxWidth = 1200, maxHeight = 1200) {
         return new Promise((resolve) => {
             let img = new Image();
@@ -71,43 +70,27 @@ document.addEventListener('DOMContentLoaded', function() {
                 const ctx = canvas.getContext('2d');
                 ctx.imageSmoothingEnabled = true;
                 ctx.drawImage(img, 0, 0, width, height);
-                // GÜNCELLEME: Çıktı formatı WebP olarak ayarlandı
                 resolve(canvas.toDataURL('image/webp', 0.8)); 
             };
             img.onerror = () => resolve(base64Str);
         });
     }
 
-    // --- 1. BAŞLATMA ---
+    // --- BAŞLATMA VE VERİ ÇEKME ---
     function initFeed() {
         if (!imageFeed || !window.db) return;
-
-        imageFeed.innerHTML = `
-            <div class="feed-loading" id="initial-loader">
-                <div class="feed-spinner"></div>
-                <p>Akış güncelleniyor...</p>
-            </div>
-        `;
-
+        imageFeed.innerHTML = `<div class="feed-loading" id="initial-loader"><div class="feed-spinner"></div><p>Akış güncelleniyor...</p></div>`;
         fetchPosts(true);
     }
 
-    // --- 2. SENTINEL (Scroll Gözlemcisi) ---
     function createSentinel() {
         const oldSentinel = document.getElementById('feed-sentinel');
         if (oldSentinel) oldSentinel.remove();
-
         const sentinel = document.createElement('div');
         sentinel.id = 'feed-sentinel';
         sentinel.innerHTML = '<div class="feed-spinner small"></div>'; 
         imageFeed.appendChild(sentinel);
-
-        const options = {
-            root: null,
-            rootMargin: '400px',
-            threshold: 0.1
-        };
-
+        const options = { root: null, rootMargin: '400px', threshold: 0.1 };
         feedObserver = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
                 if (entry.isIntersecting && !isFetching && !isAllFetched && viewMode === 'paginated') {
@@ -115,44 +98,30 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             });
         }, options);
-
         feedObserver.observe(sentinel);
     }
 
-    // --- 3. VERİ ÇEKME MOTORU ---
     async function fetchPosts(isInitial = false) {
         if (isFetching) return;
         isFetching = true;
-
         const sentinel = document.getElementById('feed-sentinel');
         if (sentinel) sentinel.style.opacity = '1';
 
         try {
             let query = window.db.collection("posts").orderBy("timestamp", "desc");
-
             if (viewMode === 'paginated') {
                 query = query.limit(5);
-                if (!isInitial && lastVisibleDoc) {
-                    query = query.startAfter(lastVisibleDoc);
-                }
+                if (!isInitial && lastVisibleDoc) query = query.startAfter(lastVisibleDoc);
             }
-
             const snapshot = await query.get();
-
             const initialLoader = document.getElementById('initial-loader');
             if (initialLoader) initialLoader.remove();
 
             if (snapshot.empty) {
                 isAllFetched = true;
                 if (sentinel) sentinel.style.display = 'none';
-                
                 if (isInitial && rawPosts.length === 0) {
-                    imageFeed.innerHTML = `
-                        <div class="empty-state">
-                            <i class="fas fa-camera" aria-hidden="true"></i>
-                            <h3>Akış Boş</h3>
-                            <p>İlk gönderiyi sen paylaş!</p>
-                        </div>`;
+                    imageFeed.innerHTML = `<div class="empty-state"><i class="fas fa-camera"></i><h3>Akış Boş</h3><p>İlk gönderiyi sen paylaş!</p></div>`;
                 }
                 isFetching = false;
                 return;
@@ -169,14 +138,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 const uniqueNewPosts = newPosts.filter(p => !existingIds.has(p.id));
                 rawPosts = [...rawPosts, ...uniqueNewPosts];
             }
-
             renderBatch(isInitial ? rawPosts : newPosts, isInitial);
-            
         } catch (error) {
             console.error("Veri hatası:", error);
             const initialLoader = document.getElementById('initial-loader');
             if (initialLoader) initialLoader.remove();
-            if (typeof showNotification === 'function') showNotification('Veriler yüklenemedi.', 'error');
         } finally {
             isFetching = false;
             if (sentinel) sentinel.style.opacity = '0';
@@ -190,7 +156,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
         postsToRender.forEach((post, index) => {
             if (!checkPostFilter(post)) return;
-            // İlk 2 post hemen yüklensin (eager), diğerleri lazy
             const isPriority = clearContainer && index < 2; 
             const el = createPostElement(post, currentUser, isPriority);
             fragment.appendChild(el);
@@ -201,12 +166,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (child.id !== 'feed-sentinel') child.remove();
             });
         }
-
-        if (sentinel) {
-            imageFeed.insertBefore(fragment, sentinel);
-        } else {
-            imageFeed.appendChild(fragment);
-        }
+        if (sentinel) imageFeed.insertBefore(fragment, sentinel);
+        else imageFeed.appendChild(fragment);
     }
 
     function checkPostFilter(post) {
@@ -235,47 +196,28 @@ document.addEventListener('DOMContentLoaded', function() {
 
     window.updateFeedFilters = async function(newFilters) {
         activeFilters = { ...activeFilters, ...newFilters };
-        const requiresFullData = activeFilters.search !== '' || 
-                                 activeFilters.sort === 'most-liked' || 
-                                 activeFilters.sort === 'most-commented' ||
-                                 activeFilters.sort === 'oldest';
-
-        imageFeed.innerHTML = `
-            <div class="feed-loading">
-                <div class="feed-spinner"></div>
-                <p>Sonuçlar filtreleniyor...</p>
-            </div>
-        `;
-
+        const requiresFullData = activeFilters.search !== '' || activeFilters.sort === 'most-liked' || activeFilters.sort === 'most-commented' || activeFilters.sort === 'oldest';
+        imageFeed.innerHTML = `<div class="feed-loading"><div class="feed-spinner"></div><p>Sonuçlar filtreleniyor...</p></div>`;
         if (requiresFullData && viewMode === 'paginated') {
             viewMode = 'all';
             const snapshot = await window.db.collection("posts").orderBy("timestamp", "desc").get();
             rawPosts = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
             isAllFetched = true;
         }
-
         sortAndRenderAll();
     };
 
     function sortAndRenderAll() {
         let processed = rawPosts.filter(checkPostFilter);
-
         processed.sort((a, b) => {
-            const dateA = new Date(a.timestamp);
-            const dateB = new Date(b.timestamp);
-            const likesA = a.likes || 0;
-            const likesB = b.likes || 0;
-            const commentsA = a.comments ? a.comments.length : 0;
-            const commentsB = b.comments ? b.comments.length : 0;
-
+            const dateA = new Date(a.timestamp), dateB = new Date(b.timestamp);
+            const likesA = a.likes || 0, likesB = b.likes || 0;
+            const commentsA = a.comments ? a.comments.length : 0, commentsB = b.comments ? b.comments.length : 0;
             switch (activeFilters.sort) {
                 case 'oldest': return dateA - dateB;
                 case 'most-liked': return likesB - likesA;
                 case 'most-commented': return commentsB - commentsA;
-                case 'hybrid': 
-                    const scoreA = likesA + commentsA;
-                    const scoreB = likesB + commentsB;
-                    return scoreB - scoreA;
+                case 'hybrid': return (likesB + commentsB) - (likesA + commentsA);
                 case 'newest': default: return dateB - dateA;
             }
         });
@@ -285,23 +227,15 @@ document.addEventListener('DOMContentLoaded', function() {
         if(sentinel) sentinel.remove(); 
 
         if (processed.length === 0) {
-            imageFeed.innerHTML = `
-                <div class="empty-state">
-                    <i class="fas fa-search" aria-hidden="true"></i>
-                    <h3>Sonuç Bulunamadı</h3>
-                    <p>Filtrelerinize uygun gönderi yok.</p>
-                </div>`;
+            imageFeed.innerHTML = `<div class="empty-state"><i class="fas fa-search"></i><h3>Sonuç Bulunamadı</h3><p>Filtrelerinize uygun gönderi yok.</p></div>`;
             return;
         }
 
         const currentUser = JSON.parse(localStorage.getItem('currentUser'));
         const fragment = document.createDocumentFragment();
-        
         processed.forEach((post, index) => {
-            const isPriority = index < 2;
-            fragment.appendChild(createPostElement(post, currentUser, isPriority));
+            fragment.appendChild(createPostElement(post, currentUser, index < 2));
         });
-
         imageFeed.appendChild(fragment);
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -315,11 +249,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const isOwnPost = currentUser && currentUser.username === post.username;
         const commentCount = post.comments ? post.comments.length : 0;
         const isLikedByMe = post.likedBy && currentUser && post.likedBy.includes(currentUser.uid);
-        const likeClass = isLikedByMe ? 'active' : '';
-        const likeIconClass = isLikedByMe ? 'fas' : 'far'; 
         const safeLikes = Math.max(0, post.likes || 0);
 
-        // Görsel Yükleme Stratejisi
         let contentHtml = '';
         if (post.imageType === 'none' || !post.image) {
             contentHtml = `
@@ -332,23 +263,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="post-media-container">
                     <div class="media-blur-bg" style="background-image: url('${post.image}')"></div>
                     <img src="${post.image}" class="card-image" loading="${isPriority ? 'eager' : 'lazy'}" decoding="async" alt="Gönderi resmi: ${post.caption || 'Başlıksız'}">
-                </div>
-            `;
+                </div>`;
         }
 
         let avatarStyle = 'display: flex; align-items: center; justify-content: center;';
         let avatarContent = '';
-        let userPic = post.userProfilePic;
-        if (isOwnPost && currentUser.profilePic) userPic = currentUser.profilePic;
-        
-        if (userPic) {
-            avatarStyle += `background: url('${userPic}') center/cover no-repeat;`;
+        if (post.userProfilePic || (isOwnPost && currentUser.profilePic)) {
+            avatarStyle += `background: url('${isOwnPost && currentUser.profilePic ? currentUser.profilePic : post.userProfilePic}') center/cover no-repeat;`;
         } else {
             avatarStyle += `background: #e1e1e1;`;
             avatarContent = `<i class="fas fa-user" style="color: #999; font-size: 18px;" aria-hidden="true"></i>`;
         }
 
-        // HTML Güncellemesi: aria-label ve input fixleri
         div.innerHTML = `
             <div class="card-header">
                 <div class="user-avatar" style="${avatarStyle}" aria-label="${post.username} profil resmi">${avatarContent}</div>
@@ -364,8 +290,8 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
             <div class="image-actions">
                 <div class="action-left">
-                    <button class="action-btn like-post-btn ${likeClass}" aria-label="Beğen">
-                        <i class="${likeIconClass} fa-heart" aria-hidden="true"></i> 
+                    <button class="action-btn like-post-btn ${isLikedByMe ? 'active' : ''}" aria-label="Beğen">
+                        <i class="${isLikedByMe ? 'fas' : 'far'} fa-heart" aria-hidden="true"></i> 
                         <span>${safeLikes}</span>
                     </button>
                 </div>
@@ -374,22 +300,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 </button>
             </div>
             <div class="discussion-section" id="discussion-${post.id}">
-                <div class="comments-container">
-                    <div class="comments-list" data-loaded="false"></div>
-                </div>
+                <div class="comments-container"><div class="comments-list" data-loaded="false"></div></div>
                 <div class="add-comment">
-                    <input 
-                        type="text" 
-                        class="comment-input" 
-                        name="comment_field_${post.id}" 
-                        placeholder="Yorumunuzu yazın..." 
-                        aria-label="Yorum yaz"
-                        autocomplete="off" 
-                        autocorrect="off" 
-                        autocapitalize="off" 
-                        spellcheck="false"
-                    >
-                    <button class="submit-comment inline-submit-btn" aria-label="Yorum gönder"><i class="fas fa-paper-plane" aria-hidden="true"></i></button>
+                    <input type="text" class="comment-input" placeholder="Yorumunuzu yazın..." aria-label="Yorum yaz">
+                    <button class="submit-comment inline-submit-btn" aria-label="Yorum gönder"><i class="fas fa-paper-plane"></i></button>
                 </div>
             </div>
         `;
@@ -412,7 +326,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const commentInput = div.querySelector('.comment-input');
         const commentsListEl = div.querySelector('.comments-list');
 
-        // Eğer bir post önceden açıksa (refresh vb.) render et ve aç
         if(openDiscussionIds.has(post.id)) {
             commentsListEl.innerHTML = renderCommentsHTML(post.comments, currentUser);
             commentsListEl.setAttribute('data-loaded', 'true');
@@ -423,25 +336,15 @@ document.addEventListener('DOMContentLoaded', function() {
             discBtn.addEventListener('click', (e) => {
                 e.preventDefault();
                 const isExpanded = discSection.classList.contains('expanded');
-                
                 if(!isExpanded) {
-                    // LAZY RENDERING: Sadece açılınca ve eğer daha önce yüklenmemişse render et
                     if (commentsListEl.getAttribute('data-loaded') === 'false') {
                         commentsListEl.innerHTML = renderCommentsHTML(post.comments, currentUser);
                         commentsListEl.setAttribute('data-loaded', 'true');
                     }
-                    
                     discSection.classList.add('expanded'); 
                     openDiscussionIds.add(post.id);
-
-                    // AÇILDIĞINDA EN AŞAĞI KAYDIR
                     const scrollContainer = div.querySelector('.comments-container');
-                    if(scrollContainer) {
-                        setTimeout(() => {
-                            scrollContainer.scrollTop = scrollContainer.scrollHeight;
-                        }, 100); 
-                    }
-                    
+                    if(scrollContainer) setTimeout(() => { scrollContainer.scrollTop = scrollContainer.scrollHeight; }, 100); 
                     setTimeout(() => { if(commentInput) commentInput.focus({ preventScroll: true }); }, 300);
                 } else {
                     discSection.classList.remove('expanded'); 
@@ -456,34 +359,20 @@ document.addEventListener('DOMContentLoaded', function() {
             commentInput.value = ''; 
             commentsListEl.setAttribute('data-loaded', 'true');
         };
-        
         if(sendBtn) sendBtn.addEventListener('click', (e) => { e.preventDefault(); handleSend(); });
         if(commentInput) commentInput.addEventListener('keypress', (e) => { if(e.key === 'Enter') { e.preventDefault(); handleSend(); } });
 
-        // Event Delegation (Yorum içi tıklamalar: silme, beğenme, devamını oku)
         commentsListEl.addEventListener('click', (e) => {
-            // Silme Butonu
             const delCommentBtn = e.target.closest('.comment-delete-btn');
             if(delCommentBtn) { e.preventDefault(); deleteComment(post.id, delCommentBtn.dataset.id); }
-            
-            // Beğeni Butonu
             const likeCommentBtn = e.target.closest('.comment-like-btn');
             if(likeCommentBtn) { e.preventDefault(); toggleCommentLike(post.id, likeCommentBtn.dataset.id); }
-
-            // Devamını Oku / Daha Az Butonu
             if(e.target.classList.contains('read-more-btn')) {
                 e.preventDefault();
-                const container = e.target.previousElementSibling; // .comment-text
-                if(container && container.classList.contains('comment-text')) {
-                    if (container.classList.contains('collapsed')) {
-                        // Açılıyor
-                        container.classList.remove('collapsed');
-                        e.target.textContent = 'Daha az';
-                    } else {
-                        // Kapanıyor
-                        container.classList.add('collapsed');
-                        e.target.textContent = 'Devamını oku';
-                    }
+                const container = e.target.previousElementSibling;
+                if(container) {
+                    container.classList.toggle('collapsed');
+                    e.target.textContent = container.classList.contains('collapsed') ? 'Devamını oku' : 'Daha az';
                 }
             }
         });
@@ -491,33 +380,20 @@ document.addEventListener('DOMContentLoaded', function() {
         return div;
     }
 
-    // --- YENİ YORUM RENDER FONKSİYONU ---
     function renderCommentsHTML(comments, currentUser) {
         if (!comments || comments.length === 0) return '<div style="text-align:center; color:var(--text-light); font-size:13px; padding:20px;">Henüz yorum yok. İlk yorumu sen yap!</div>';
-        
         return comments.map(c => {
             const isMyComment = currentUser && currentUser.username === c.username;
             const isLiked = c.likedBy && currentUser && c.likedBy.includes(currentUser.uid);
-            const likeClass = isLiked ? 'active' : '';
-            const likeIcon = isLiked ? 'fas' : 'far';
-            const likeCount = c.likes || 0;
-            
-            // Metin uzunluk kontrolü
-            const isLongText = c.text && c.text.length > 120; // 120 karakter üstü uzun sayılır
-            const textClass = isLongText ? 'comment-text collapsed' : 'comment-text';
-            // Başlangıçta 'Devamını oku' butonu
-            const readMoreBtn = isLongText ? '<button class="read-more-btn" aria-label="Yorumun devamını oku">Devamını oku</button>' : '';
-
+            const isLongText = c.text && c.text.length > 120;
             return `
                 <div class="comment-item ${isMyComment ? 'mine' : ''}">
                     <div class="comment-header"><span class="comment-user">${c.username}</span></div>
-                    
-                    <div class="${textClass}">${c.text}</div>
-                    ${readMoreBtn}
-                    
+                    <div class="${isLongText ? 'comment-text collapsed' : 'comment-text'}">${c.text}</div>
+                    ${isLongText ? '<button class="read-more-btn">Devamını oku</button>' : ''}
                     <div class="comment-footer">
-                        <div class="footer-left"><button class="comment-like-btn ${likeClass}" data-id="${c.id}" aria-label="Yorumu beğen"><i class="${likeIcon} fa-heart" aria-hidden="true"></i> ${likeCount > 0 ? likeCount : ''}</button></div>
-                        <div class="footer-right">${isMyComment ? `<button class="comment-delete-btn" data-id="${c.id}" aria-label="Yorumu sil"><i class="fas fa-trash" aria-hidden="true"></i></button>` : ''}<span class="comment-time">${timeAgo(c.timestamp)}</span></div>
+                        <div class="footer-left"><button class="comment-like-btn ${isLiked ? 'active' : ''}" data-id="${c.id}"><i class="${isLiked ? 'fas' : 'far'} fa-heart"></i> ${c.likes > 0 ? c.likes : ''}</button></div>
+                        <div class="footer-right">${isMyComment ? `<button class="comment-delete-btn" data-id="${c.id}"><i class="fas fa-trash"></i></button>` : ''}<span class="comment-time">${timeAgo(c.timestamp)}</span></div>
                     </div>
                 </div>`;
         }).join('');
@@ -527,19 +403,27 @@ document.addEventListener('DOMContentLoaded', function() {
         const user = getCurrentUserOrAlert(); if(!user) return;
         const currentPost = rawPosts.find(p => p.id === postId); if(!currentPost) return;
         const card = document.querySelector(`.image-card[data-post-id="${postId}"]`);
-        if(card) {
-            const btn = card.querySelector('.like-post-btn'); const span = btn.querySelector('span'); const icon = btn.querySelector('i');
-            let cnt = parseInt(span.textContent) || 0;
-            if(btn.classList.contains('active')) { btn.classList.remove('active'); icon.className = 'far fa-heart'; span.textContent = Math.max(0, cnt - 1); }
-            else { btn.classList.add('active'); icon.className = 'fas fa-heart'; span.textContent = cnt + 1; }
-        }
         const ref = window.db.collection("posts").doc(postId);
-        if (currentPost.likedBy && currentPost.likedBy.includes(user.uid)) {
+        
+        let newLikes = currentPost.likes || 0;
+        let likedBy = currentPost.likedBy || [];
+        
+        if (likedBy.includes(user.uid)) {
+            newLikes--; likedBy = likedBy.filter(u => u !== user.uid);
             ref.update({ likes: firebase.firestore.FieldValue.increment(-1), likedBy: firebase.firestore.FieldValue.arrayRemove(user.uid) });
-            currentPost.likedBy = currentPost.likedBy.filter(u => u !== user.uid); currentPost.likes--;
         } else {
+            newLikes++; likedBy.push(user.uid);
             ref.update({ likes: firebase.firestore.FieldValue.increment(1), likedBy: firebase.firestore.FieldValue.arrayUnion(user.uid) });
-            if(!currentPost.likedBy) currentPost.likedBy = []; currentPost.likedBy.push(user.uid); currentPost.likes++;
+        }
+        currentPost.likes = newLikes; currentPost.likedBy = likedBy;
+        
+        if(card) {
+            const btn = card.querySelector('.like-post-btn');
+            const icon = btn.querySelector('i');
+            const span = btn.querySelector('span');
+            btn.classList.toggle('active');
+            icon.className = btn.classList.contains('active') ? 'fas fa-heart' : 'far fa-heart';
+            span.textContent = newLikes;
         }
     }
 
@@ -549,16 +433,27 @@ document.addEventListener('DOMContentLoaded', function() {
         let updatedComments = [...currentPost.comments];
         const commentIndex = updatedComments.findIndex(c => c.id === commentId); if(commentIndex === -1) return;
         let comment = updatedComments[commentIndex];
-        if(!comment.likedBy) comment.likedBy = []; if(!comment.likes) comment.likes = 0;
+        
+        if(!comment.likedBy) comment.likedBy = [];
         const isLiked = comment.likedBy.includes(user.uid);
-        if(isLiked) { if (comment.likes > 0) comment.likes--; comment.likedBy = comment.likedBy.filter(id => id !== user.uid); }
-        else { comment.likes++; comment.likedBy.push(user.uid); }
+        
+        if(isLiked) { 
+            if (comment.likes > 0) comment.likes--; 
+            comment.likedBy = comment.likedBy.filter(id => id !== user.uid); 
+        } else { 
+            if(!comment.likes) comment.likes = 0;
+            comment.likes++; 
+            comment.likedBy.push(user.uid); 
+        }
         updatedComments[commentIndex] = comment;
         
         const card = document.querySelector(`.image-card[data-post-id="${postId}"]`);
         if(card) {
              const cBtn = card.querySelector(`.comment-like-btn[data-id="${commentId}"]`);
-             if(cBtn) { cBtn.innerHTML = `<i class="${!isLiked ? 'fas' : 'far'} fa-heart" aria-hidden="true"></i> ${comment.likes > 0 ? comment.likes : ''}`; cBtn.classList.toggle('active'); }
+             if(cBtn) { 
+                 cBtn.innerHTML = `<i class="${!isLiked ? 'fas' : 'far'} fa-heart"></i> ${comment.likes > 0 ? comment.likes : ''}`; 
+                 cBtn.classList.toggle('active'); 
+             }
         }
         window.db.collection("posts").doc(postId).update({ comments: updatedComments });
     }
@@ -572,18 +467,12 @@ document.addEventListener('DOMContentLoaded', function() {
             if(!post.comments) post.comments = []; post.comments.push(newComment);
             const card = document.querySelector(`.image-card[data-post-id="${postId}"]`);
             if(card) {
-                const list = card.querySelector('.comments-list'); const btn = card.querySelector('.toggle-comments-btn');
-                
-                // Yorum gönderilince listeyi güncelle
+                const list = card.querySelector('.comments-list'); 
+                const btn = card.querySelector('.toggle-comments-btn');
                 if(list) list.innerHTML = renderCommentsHTML(post.comments, user);
-                if(btn) btn.innerHTML = `<i class="far fa-comments" aria-hidden="true"></i> Tartışma (${post.comments.length})`;
-
+                if(btn) btn.innerHTML = `<i class="far fa-comments"></i> Tartışma (${post.comments.length})`;
                 const scrollContainer = card.querySelector('.comments-container');
-                if(scrollContainer) {
-                    setTimeout(() => {
-                        scrollContainer.scrollTop = scrollContainer.scrollHeight;
-                    }, 50); 
-                }
+                if(scrollContainer) setTimeout(() => { scrollContainer.scrollTop = scrollContainer.scrollHeight; }, 50); 
             }
         }
         window.db.collection("posts").doc(postId).update({ comments: firebase.firestore.FieldValue.arrayUnion(newComment) })
@@ -596,7 +485,11 @@ document.addEventListener('DOMContentLoaded', function() {
         const updated = currentPost.comments.filter(c => c.id !== cId);
         currentPost.comments = updated; 
         const card = document.querySelector(`.image-card[data-post-id="${postId}"]`);
-        if(card) { const list = card.querySelector('.comments-list'); const user = JSON.parse(localStorage.getItem('currentUser')); if(list) list.innerHTML = renderCommentsHTML(updated, user); }
+        if(card) { 
+            const list = card.querySelector('.comments-list'); 
+            const user = JSON.parse(localStorage.getItem('currentUser')); 
+            if(list) list.innerHTML = renderCommentsHTML(updated, user); 
+        }
         window.db.collection("posts").doc(postId).update({ comments: updated });
     }
 
@@ -631,11 +524,13 @@ document.addEventListener('DOMContentLoaded', function() {
             const user = JSON.parse(localStorage.getItem('currentUser'));
             if (!user) { if(typeof showNotification==='function') showNotification('Giriş yapmalısınız!', 'error'); return; }
             if (!selectedImage && !caption) { if(typeof showNotification==='function') showNotification('Görsel veya açıklama ekleyin.', 'error'); return; }
-            const newPost = { username: user.username, userId: user.uid, caption: caption, image: selectedImage, imageType: selectedImage ? 'uploaded' : 'none', timestamp: new Date().toISOString(), likes: 0, likedBy: [], comments: [], userProfilePic: user.profilePic || null };
+            
             sharePostBtn.textContent = 'Paylaşılıyor...'; sharePostBtn.disabled = true;
+            
+            const newPost = { username: user.username, userId: user.uid, caption: caption, image: selectedImage, imageType: selectedImage ? 'uploaded' : 'none', timestamp: new Date().toISOString(), likes: 0, likedBy: [], comments: [], userProfilePic: user.profilePic || null };
+            
             window.db.collection("posts").add(newPost).then((docRef) => {
                 newPost.id = docRef.id; rawPosts.unshift(newPost);
-                // Yeni post her zaman priority ile eklenir
                 const card = createPostElement(newPost, user, true);
                 if(imageFeed.firstChild) imageFeed.insertBefore(card, imageFeed.firstChild); else imageFeed.appendChild(card);
                 if(addPostModal) { addPostModal.style.display = 'none'; document.body.style.overflow = 'auto'; }
@@ -665,28 +560,37 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // --- GELİŞMİŞ TAM EKRAN GÖRSEL & ZOOM SİSTEMİ ---
+    // --- TAM EKRAN & ZOOM SİSTEMİ (HATALAR DÜZELTİLDİ) ---
     const fullscreenViewer = document.getElementById('fullscreen-viewer');
     const fullscreenImg = document.getElementById('fullscreen-image');
     const closeFullscreenBtn = document.getElementById('close-fullscreen-btn');
     const fullscreenContainer = document.getElementById('fullscreen-img-container');
 
     let state = { scale: 1, panning: false, pointX: 0, pointY: 0, startX: 0, startY: 0 };
-    const minScale = 1;
-    const maxScale = 5;
+    const minScale = 1, maxScale = 5;
 
     function openFullscreenImage(src) {
         if (!fullscreenViewer || !fullscreenImg) return;
         fullscreenImg.src = src;
         fullscreenViewer.style.setProperty('--fullscreen-bg', `url('${src}')`);
         fullscreenViewer.classList.add('active');
+        fullscreenViewer.setAttribute('aria-hidden', 'false'); 
         document.body.style.overflow = 'hidden'; 
         resetZoom();
     }
 
+    // HATA ÇÖZÜMÜ BURADA:
     function closeFullscreenImage() {
         if (!fullscreenViewer) return;
+        
+        // ÖNEMLİ: Kapanmadan önce focus'u kaldır.
+        // Bu sayede ARIA hatası (focus retained) tamamen engellenir.
+        if (document.activeElement instanceof HTMLElement) {
+            document.activeElement.blur();
+        }
+
         fullscreenViewer.classList.remove('active');
+        fullscreenViewer.setAttribute('aria-hidden', 'true'); 
         document.body.style.overflow = 'auto'; 
         setTimeout(() => { if(fullscreenImg) fullscreenImg.src = ''; }, 300);
     }
@@ -700,9 +604,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function updateTransform() {
-        if(fullscreenImg) {
-            fullscreenImg.style.transform = `translate(${state.pointX}px, ${state.pointY}px) scale(${state.scale})`;
-        }
+        if(fullscreenImg) fullscreenImg.style.transform = `translate(${state.pointX}px, ${state.pointY}px) scale(${state.scale})`;
     }
 
     if (closeFullscreenBtn) {
@@ -712,20 +614,14 @@ document.addEventListener('DOMContentLoaded', function() {
     if (fullscreenViewer) {
         fullscreenViewer.addEventListener('click', (e) => {
             if (state.scale === 1 && !state.panning) {
-                if (e.target === fullscreenViewer || e.target === fullscreenContainer) {
-                    closeFullscreenImage();
-                }
+                if (e.target === fullscreenViewer || e.target === fullscreenContainer) closeFullscreenImage();
             }
         });
     }
 
     if (fullscreenContainer && fullscreenImg) {
-        let lastTap = 0;
-        let isPinching = false;
-        let initialPinchDistance = 0;
-        let initialScale = 1;
-        let initialPinchCenter = { x: 0, y: 0 };
-        let initialPoint = { x: 0, y: 0 };
+        let lastTap = 0, isPinching = false, initialPinchDistance = 0, initialScale = 1;
+        let initialPinchCenter = { x: 0, y: 0 }, initialPoint = { x: 0, y: 0 };
 
         fullscreenContainer.addEventListener('touchend', function (e) {
             const currentTime = new Date().getTime();
@@ -733,12 +629,12 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!isPinching && tapLength < 300 && tapLength > 0 && e.touches.length === 0) {
                 e.preventDefault();
                 fullscreenImg.style.transition = 'transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
-                if (state.scale > 1) { resetZoom(); } else { state.scale = 2; state.pointX = 0; state.pointY = 0; updateTransform(); }
+                if (state.scale > 1) resetZoom(); else { state.scale = 2; state.pointX = 0; state.pointY = 0; updateTransform(); }
             }
             if (e.touches.length === 0) {
                 state.panning = false;
                 fullscreenImg.style.transition = 'transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
-                if (state.scale < 1) { resetZoom(); }
+                if (state.scale < 1) resetZoom();
                 if (isPinching) { isPinching = false; return; }
             }
             lastTap = currentTime;
@@ -746,7 +642,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         fullscreenContainer.addEventListener('dblclick', (e) => {
             fullscreenImg.style.transition = 'transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
-            if (state.scale > 1) { resetZoom(); } else { state.scale = 2; updateTransform(); }
+            if (state.scale > 1) resetZoom(); else { state.scale = 2; updateTransform(); }
         });
 
         fullscreenContainer.addEventListener('touchstart', (e) => {
@@ -792,7 +688,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const zoomFactor = 0.1; const direction = e.deltaY < 0 ? 1 : -1;
             let newScale = state.scale + (direction * zoomFactor * state.scale);
             newScale = Math.min(Math.max(minScale, newScale), maxScale);
-            if (newScale <= 1) { resetZoom(); } else { state.scale = newScale; updateTransform(); }
+            if (newScale <= 1) resetZoom(); else { state.scale = newScale; updateTransform(); }
         }, { passive: false });
 
         let isMouseDown = false;
