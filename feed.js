@@ -1,4 +1,4 @@
-// feed.js - GOOGLE OTO-DOLDURMA KAPALI + OTO-KLAVYE KAPALI SÜRÜM
+// feed.js - GOOGLE OTO-DOLDURMA KAPALI + KLAVYE "GÖNDER" TUŞLU
 document.addEventListener('DOMContentLoaded', function() {
     
     // --- DİNAMİK CSS STİLLERİ ---
@@ -275,7 +275,8 @@ document.addEventListener('DOMContentLoaded', function() {
             avatarContent = `<i class="fas fa-user" style="color: #999; font-size: 18px;" aria-hidden="true"></i>`;
         }
 
-        // --- İŞTE BURADA INPUT AYARLARI YAPILDI ---
+        // --- GÜNCELLEME: TYPE="TEXT" + ENTERKEYHINT="SEND" ---
+        // name="fld_..." yaptık, "comment" kelimesini sildik ki tarayıcı adres sanmasın.
         div.innerHTML = `
             <div class="card-header">
                 <div class="user-avatar" style="${avatarStyle}" aria-label="${post.username} profil resmi">${avatarContent}</div>
@@ -306,12 +307,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     <input 
                         type="text" 
                         class="comment-input" 
-                        name="comment_field_${post.id}_${Math.random().toString(36).substring(7)}" 
+                        name="fld_${post.id}_${Math.random().toString(36).substring(7)}" 
                         placeholder="Yorumunuzu yazın..." 
                         autocomplete="off" 
                         autocorrect="off" 
                         autocapitalize="off" 
                         spellcheck="false" 
+                        enterkeyhint="send"
                         aria-label="Yorum yaz"
                     >
                     <button class="submit-comment inline-submit-btn" aria-label="Yorum gönder"><i class="fas fa-paper-plane"></i></button>
@@ -357,9 +359,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     const scrollContainer = div.querySelector('.comments-container');
                     if(scrollContainer) setTimeout(() => { scrollContainer.scrollTop = scrollContainer.scrollHeight; }, 100); 
                     
-                    // --- DÜZELTME: KLAVYE ARTIK BURADA OTOMATİK AÇILMIYOR ---
-                    // setTimeout(() => { if(commentInput) commentInput.focus({ preventScroll: true }); }, 300); // SİLİNDİ
-                    
+                    // Klavye otomatik açılmasın diye focus kodu kaldırıldı.
                 } else {
                     discSection.classList.remove('expanded'); 
                     openDiscussionIds.delete(post.id);
@@ -574,7 +574,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // --- TAM EKRAN & ZOOM SİSTEMİ (HATALAR DÜZELTİLDİ) ---
+    // --- TAM EKRAN & ZOOM SİSTEMİ ---
     const fullscreenViewer = document.getElementById('fullscreen-viewer');
     const fullscreenImg = document.getElementById('fullscreen-image');
     const closeFullscreenBtn = document.getElementById('close-fullscreen-btn');
@@ -596,7 +596,6 @@ document.addEventListener('DOMContentLoaded', function() {
     function closeFullscreenImage() {
         if (!fullscreenViewer) return;
         
-        // ÖNEMLİ: Kapanmadan önce focus'u kaldır.
         if (document.activeElement instanceof HTMLElement) {
             document.activeElement.blur();
         }
