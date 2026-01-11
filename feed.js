@@ -1,4 +1,4 @@
-// feed.js - FINAL SÜRÜM (AUTOCOMPLETE KESİN ÇÖZÜM)
+// feed.js - FINAL SÜRÜM (KLAVYE VE OTO-DOLDURMA FIX)
 document.addEventListener('DOMContentLoaded', function() {
     
     // --- DİNAMİK CSS STİLLERİ ---
@@ -275,7 +275,7 @@ document.addEventListener('DOMContentLoaded', function() {
             avatarContent = `<i class="fas fa-user" style="color: #999; font-size: 18px;" aria-hidden="true"></i>`;
         }
 
-        // BURASI DEĞİŞTİ: FORM + FAKE INPUT HİLESİ EKLENDİ
+        // DEĞİŞİKLİK: 'readonly' hack ve form yapısı
         div.innerHTML = `
             <div class="card-header">
                 <div class="user-avatar" style="${avatarStyle}" aria-label="${post.username} profil resmi">${avatarContent}</div>
@@ -303,20 +303,18 @@ document.addEventListener('DOMContentLoaded', function() {
             <div class="discussion-section" id="discussion-${post.id}">
                 <div class="comments-container"><div class="comments-list" data-loaded="false"></div></div>
                 <form class="add-comment" action="javascript:void(0);" autocomplete="off">
-                    <input type="text" style="position:fixed; left:-9999px; opacity:0; pointer-events:none;" name="fake_user_prevent_autofill" tabindex="-1">
-                    <input type="password" style="position:fixed; left:-9999px; opacity:0; pointer-events:none;" name="fake_password_prevent_autofill" tabindex="-1">
+                    <input type="text" style="display:none;" name="fake_username_prevent_autofill">
+                    <input type="password" style="display:none;" name="fake_password_prevent_autofill">
 
                     <input 
                         type="text" 
                         class="comment-input" 
-                        name="search_term_${Math.random().toString(36).substring(7)}" 
+                        name="random_id_${Math.random().toString(36).substr(2, 9)}" 
                         placeholder="Yorumunuzu yazın..." 
                         aria-label="Yorum yaz"
                         autocomplete="off" 
-                        autocorrect="off" 
-                        autocapitalize="off" 
-                        spellcheck="false"
-                        data-lpignore="true" 
+                        readonly 
+                        onfocus="this.removeAttribute('readonly');"
                     >
                     <button type="submit" class="submit-comment inline-submit-btn" aria-label="Yorum gönder"><i class="fas fa-paper-plane"></i></button>
                 </form>
@@ -360,7 +358,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     openDiscussionIds.add(post.id);
                     const scrollContainer = div.querySelector('.comments-container');
                     if(scrollContainer) setTimeout(() => { scrollContainer.scrollTop = scrollContainer.scrollHeight; }, 100); 
-                    setTimeout(() => { if(commentInput) commentInput.focus({ preventScroll: true }); }, 300);
+                    
+                    // DÜZELTME: FOCUS KODU KALDIRILDI - ARTIK KLAVYE OTOMATİK AÇILMAYACAK
+                    
                 } else {
                     discSection.classList.remove('expanded'); 
                     openDiscussionIds.delete(post.id);
@@ -368,14 +368,13 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
         
-        // YENİ EVENT LISTENER YAPISI (FORM SUBMIT)
         const commentForm = div.querySelector('.add-comment');
         const handleSend = () => { 
             sendComment(post.id, commentInput.value); 
             commentInput.value = ''; 
             commentsListEl.setAttribute('data-loaded', 'true');
             if (document.activeElement === commentInput) {
-                commentInput.blur(); // Mobil klavyeyi kapatmak için
+                commentInput.blur(); 
             }
         };
 
@@ -584,7 +583,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // --- TAM EKRAN & ZOOM SİSTEMİ (HATALAR DÜZELTİLDİ) ---
+    // --- TAM EKRAN & ZOOM SİSTEMİ ---
     const fullscreenViewer = document.getElementById('fullscreen-viewer');
     const fullscreenImg = document.getElementById('fullscreen-image');
     const closeFullscreenBtn = document.getElementById('close-fullscreen-btn');
