@@ -618,3 +618,36 @@ body {
         top: 20px; right: 20px; font-size: 20px; width: 40px; height: 40px;
     }
 }
+
+/* --- MOBİL PERFORMANS YAMASI (GPU & FPS Optimizasyonu) --- */
+@media (max-width: 768px) {
+    /* 1. Arka Plan Bulanıklığını Kapat (En büyük performans kazancı burası) */
+    .media-blur-bg {
+        display: none !important;
+    }
+    
+    /* Onun yerine çok hafif, işlemciyi yormayan bir geçiş koyalım */
+    .post-media-container {
+        background: linear-gradient(to bottom, #f8f9fa, #e9ecef) !important;
+    }
+    [data-theme="dark"] .post-media-container {
+        background: linear-gradient(to bottom, #1e1e1e, #121212) !important;
+    }
+
+    /* 2. Buzlu Cam Efektini Hafiflet */
+    .nav-container, .top-nav, .modal, .fullscreen-viewer, .floating-nav {
+        backdrop-filter: blur(8px) !important; 
+        -webkit-backdrop-filter: blur(8px) !important;
+    }
+
+    /* 3. Gölgeleri Basitleştir */
+    .image-card, .profile-header, .auth-form {
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08) !important;
+    }
+
+    /* 4. Donanım Hızlandırma İpuçları */
+    .image-card, .floating-nav, .top-nav {
+        transform: translateZ(0); 
+        will-change: transform; 
+    }
+}
