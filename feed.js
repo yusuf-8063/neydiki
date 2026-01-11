@@ -1,6 +1,6 @@
-// feed.js - GÜNCELLENMİŞ VERSİYON (Yorum Kısaltma + Auto Scroll Eklendi)
+// feed.js - GÜNCELLENMİŞ VERSİYON (Erişilebilirlik + Performans)
 document.addEventListener('DOMContentLoaded', function() {
-    console.log("Feed.js: Optimize Edilmiş Sürüm (Lazy Comments + Read More/Less + Auto Scroll)");
+    console.log("Feed.js: Optimize Edilmiş Sürüm (Lazy Comments + Read More/Less + Auto Scroll + Accessibility)");
 
     // --- DİNAMİK CSS STİLLERİ (Yorum Kısaltma İçin) ---
     const style = document.createElement('style');
@@ -147,7 +147,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (isInitial && rawPosts.length === 0) {
                     imageFeed.innerHTML = `
                         <div class="empty-state">
-                            <i class="fas fa-camera"></i>
+                            <i class="fas fa-camera" aria-hidden="true"></i>
                             <h3>Akış Boş</h3>
                             <p>İlk gönderiyi sen paylaş!</p>
                         </div>`;
@@ -285,7 +285,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (processed.length === 0) {
             imageFeed.innerHTML = `
                 <div class="empty-state">
-                    <i class="fas fa-search"></i>
+                    <i class="fas fa-search" aria-hidden="true"></i>
                     <h3>Sonuç Bulunamadı</h3>
                     <p>Filtrelerinize uygun gönderi yok.</p>
                 </div>`;
@@ -322,14 +322,14 @@ document.addEventListener('DOMContentLoaded', function() {
         if (post.imageType === 'none' || !post.image) {
             contentHtml = `
                 <div class="card-image no-image-post" style="padding: 40px 20px; background: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%); display:flex; align-items:center; justify-content:center; flex-direction:column; min-height: 250px;">
-                    <i class="fas fa-quote-left" style="font-size:32px; color:white; margin-bottom:15px; opacity:0.8;"></i>
+                    <i class="fas fa-quote-left" style="font-size:32px; color:white; margin-bottom:15px; opacity:0.8;" aria-hidden="true"></i>
                     <div style="color:white; font-weight:600; font-size:18px; text-align:center; text-shadow:0 2px 4px rgba(0,0,0,0.1);">Düşünce Paylaşımı</div>
                 </div>`;
         } else {
             contentHtml = `
                 <div class="post-media-container">
                     <div class="media-blur-bg" style="background-image: url('${post.image}')"></div>
-                    <img src="${post.image}" class="card-image" loading="${isPriority ? 'eager' : 'lazy'}" decoding="async" alt="Gönderi">
+                    <img src="${post.image}" class="card-image" loading="${isPriority ? 'eager' : 'lazy'}" decoding="async" alt="Gönderi resmi: ${post.caption || 'Başlıksız'}">
                 </div>
             `;
         }
@@ -343,17 +343,18 @@ document.addEventListener('DOMContentLoaded', function() {
             avatarStyle += `background: url('${userPic}') center/cover no-repeat;`;
         } else {
             avatarStyle += `background: #e1e1e1;`;
-            avatarContent = `<i class="fas fa-user" style="color: #999; font-size: 18px;"></i>`;
+            avatarContent = `<i class="fas fa-user" style="color: #999; font-size: 18px;" aria-hidden="true"></i>`;
         }
 
+        // HTML Güncellemesi: aria-label eklemeleri
         div.innerHTML = `
             <div class="card-header">
-                <div class="user-avatar" style="${avatarStyle}">${avatarContent}</div>
+                <div class="user-avatar" style="${avatarStyle}" aria-label="${post.username} profil resmi">${avatarContent}</div>
                 <div class="user-info">
                     <div class="username">${post.username || 'Anonim'}</div>
                     <div class="post-time">${timeAgo(post.timestamp)}</div>
                 </div>
-                ${isOwnPost ? `<button class="delete-post-btn"><i class="fas fa-trash"></i></button>` : ''}
+                ${isOwnPost ? `<button class="delete-post-btn" aria-label="Gönderiyi sil"><i class="fas fa-trash" aria-hidden="true"></i></button>` : ''}
             </div>
             ${contentHtml}
             <div class="card-content">
@@ -361,13 +362,13 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
             <div class="image-actions">
                 <div class="action-left">
-                    <button class="action-btn like-post-btn ${likeClass}">
-                        <i class="${likeIconClass} fa-heart"></i> 
+                    <button class="action-btn like-post-btn ${likeClass}" aria-label="Beğen">
+                        <i class="${likeIconClass} fa-heart" aria-hidden="true"></i> 
                         <span>${safeLikes}</span>
                     </button>
                 </div>
-                <button class="discussion-btn toggle-comments-btn">
-                    <i class="far fa-comments"></i> Tartışma (${commentCount})
+                <button class="discussion-btn toggle-comments-btn" aria-label="Yorumları göster">
+                    <i class="far fa-comments" aria-hidden="true"></i> Tartışma (${commentCount})
                 </button>
             </div>
             <div class="discussion-section" id="discussion-${post.id}">
@@ -375,8 +376,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     <div class="comments-list" data-loaded="false"></div>
                 </div>
                 <div class="add-comment">
-                    <input type="text" class="comment-input" placeholder="Yorumunuzu yazın...">
-                    <button class="submit-comment inline-submit-btn"><i class="fas fa-paper-plane"></i></button>
+                    <input type="text" class="comment-input" placeholder="Yorumunuzu yazın..." aria-label="Yorum yaz">
+                    <button class="submit-comment inline-submit-btn" aria-label="Yorum gönder"><i class="fas fa-paper-plane" aria-hidden="true"></i></button>
                 </div>
             </div>
         `;
@@ -478,7 +479,7 @@ document.addEventListener('DOMContentLoaded', function() {
         return div;
     }
 
-    // --- YENİ YORUM RENDER FONKSİYONU ---
+    // --- YENİ YORUM RENDER FONKSİYONU (Aria-label eklendi) ---
     function renderCommentsHTML(comments, currentUser) {
         if (!comments || comments.length === 0) return '<div style="text-align:center; color:var(--text-light); font-size:13px; padding:20px;">Henüz yorum yok. İlk yorumu sen yap!</div>';
         
@@ -493,7 +494,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const isLongText = c.text && c.text.length > 120; // 120 karakter üstü uzun sayılır
             const textClass = isLongText ? 'comment-text collapsed' : 'comment-text';
             // Başlangıçta 'Devamını oku' butonu
-            const readMoreBtn = isLongText ? '<button class="read-more-btn">Devamını oku</button>' : '';
+            const readMoreBtn = isLongText ? '<button class="read-more-btn" aria-label="Yorumun devamını oku">Devamını oku</button>' : '';
 
             return `
                 <div class="comment-item ${isMyComment ? 'mine' : ''}">
@@ -503,8 +504,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     ${readMoreBtn}
                     
                     <div class="comment-footer">
-                        <div class="footer-left"><button class="comment-like-btn ${likeClass}" data-id="${c.id}"><i class="${likeIcon} fa-heart"></i> ${likeCount > 0 ? likeCount : ''}</button></div>
-                        <div class="footer-right">${isMyComment ? `<button class="comment-delete-btn" data-id="${c.id}"><i class="fas fa-trash"></i></button>` : ''}<span class="comment-time">${timeAgo(c.timestamp)}</span></div>
+                        <div class="footer-left"><button class="comment-like-btn ${likeClass}" data-id="${c.id}" aria-label="Yorumu beğen"><i class="${likeIcon} fa-heart" aria-hidden="true"></i> ${likeCount > 0 ? likeCount : ''}</button></div>
+                        <div class="footer-right">${isMyComment ? `<button class="comment-delete-btn" data-id="${c.id}" aria-label="Yorumu sil"><i class="fas fa-trash" aria-hidden="true"></i></button>` : ''}<span class="comment-time">${timeAgo(c.timestamp)}</span></div>
                     </div>
                 </div>`;
         }).join('');
@@ -545,7 +546,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const card = document.querySelector(`.image-card[data-post-id="${postId}"]`);
         if(card) {
              const cBtn = card.querySelector(`.comment-like-btn[data-id="${commentId}"]`);
-             if(cBtn) { cBtn.innerHTML = `<i class="${!isLiked ? 'fas' : 'far'} fa-heart"></i> ${comment.likes > 0 ? comment.likes : ''}`; cBtn.classList.toggle('active'); }
+             if(cBtn) { cBtn.innerHTML = `<i class="${!isLiked ? 'fas' : 'far'} fa-heart" aria-hidden="true"></i> ${comment.likes > 0 ? comment.likes : ''}`; cBtn.classList.toggle('active'); }
         }
         window.db.collection("posts").doc(postId).update({ comments: updatedComments });
     }
@@ -563,7 +564,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // Yorum gönderilince listeyi güncelle
                 if(list) list.innerHTML = renderCommentsHTML(post.comments, user);
-                if(btn) btn.innerHTML = `<i class="far fa-comments"></i> Tartışma (${post.comments.length})`;
+                if(btn) btn.innerHTML = `<i class="far fa-comments" aria-hidden="true"></i> Tartışma (${post.comments.length})`;
 
                 const scrollContainer = card.querySelector('.comments-container');
                 if(scrollContainer) {
