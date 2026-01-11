@@ -1,4 +1,4 @@
-// filters.js - ÇOKLU SEÇİM GÜNCELLEMESİ (BEĞENİ VE YORUM AYNI ANDA)
+// filters.js - ÇOKLU SEÇİM GÜNCELLEMESİ (BEĞENİ VE YORUM AYNI ANDA) + DEBOUNCE
 document.addEventListener('DOMContentLoaded', function() {
     // Element Seçimleri
     const mobileFilterToggle = document.getElementById('mobile-filter-toggle');
@@ -45,10 +45,22 @@ document.addEventListener('DOMContentLoaded', function() {
     };
 
     if (searchInput) {
-        searchInput.addEventListener('input', handleLiveSearch);
+        // PERFORMANS İYİLEŞTİRMESİ: Debounce eklendi
+        // Kullanıcı her tuşa bastığında değil, yazmayı bitirince (300ms sonra) arama yapar.
+        let debounceTimer;
+        
+        searchInput.addEventListener('input', (e) => {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                handleLiveSearch(e);
+            }, 300);
+        });
+
         searchInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
+                clearTimeout(debounceTimer); // Enter'a basarsa hemen ara
+                handleLiveSearch(e);
                 searchInput.blur();
             }
         });
