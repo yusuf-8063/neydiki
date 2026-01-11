@@ -1,4 +1,4 @@
-// feed.js - TAMAMEN DÜZELTİLMİŞ SÜRÜM (AUTOCOMPLETE SORUNU GİDERİLDİ)
+// feed.js - FINAL SÜRÜM (AUTOCOMPLETE KESİN ÇÖZÜM)
 document.addEventListener('DOMContentLoaded', function() {
     
     // --- DİNAMİK CSS STİLLERİ ---
@@ -275,8 +275,7 @@ document.addEventListener('DOMContentLoaded', function() {
             avatarContent = `<i class="fas fa-user" style="color: #999; font-size: 18px;" aria-hidden="true"></i>`;
         }
 
-        // AUTOCOMPLETE FIX BURADA YAPILDI:
-        // name="new_comment_..." ve autocomplete="off" eklendi.
+        // BURASI DEĞİŞTİ: FORM + FAKE INPUT HİLESİ EKLENDİ
         div.innerHTML = `
             <div class="card-header">
                 <div class="user-avatar" style="${avatarStyle}" aria-label="${post.username} profil resmi">${avatarContent}</div>
@@ -303,20 +302,24 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
             <div class="discussion-section" id="discussion-${post.id}">
                 <div class="comments-container"><div class="comments-list" data-loaded="false"></div></div>
-                <div class="add-comment">
+                <form class="add-comment" action="javascript:void(0);" autocomplete="off">
+                    <input type="text" style="position:fixed; left:-9999px; opacity:0; pointer-events:none;" name="fake_user_prevent_autofill" tabindex="-1">
+                    <input type="password" style="position:fixed; left:-9999px; opacity:0; pointer-events:none;" name="fake_password_prevent_autofill" tabindex="-1">
+
                     <input 
                         type="text" 
                         class="comment-input" 
-                        name="new_comment_${post.id}_${Math.floor(Math.random() * 10000)}" 
+                        name="search_term_${Math.random().toString(36).substring(7)}" 
                         placeholder="Yorumunuzu yazın..." 
                         aria-label="Yorum yaz"
                         autocomplete="off" 
                         autocorrect="off" 
                         autocapitalize="off" 
                         spellcheck="false"
+                        data-lpignore="true" 
                     >
-                    <button class="submit-comment inline-submit-btn" aria-label="Yorum gönder"><i class="fas fa-paper-plane"></i></button>
-                </div>
+                    <button type="submit" class="submit-comment inline-submit-btn" aria-label="Yorum gönder"><i class="fas fa-paper-plane"></i></button>
+                </form>
             </div>
         `;
 
@@ -365,14 +368,23 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
         
-        const sendBtn = div.querySelector('.inline-submit-btn');
+        // YENİ EVENT LISTENER YAPISI (FORM SUBMIT)
+        const commentForm = div.querySelector('.add-comment');
         const handleSend = () => { 
             sendComment(post.id, commentInput.value); 
             commentInput.value = ''; 
             commentsListEl.setAttribute('data-loaded', 'true');
+            if (document.activeElement === commentInput) {
+                commentInput.blur(); // Mobil klavyeyi kapatmak için
+            }
         };
-        if(sendBtn) sendBtn.addEventListener('click', (e) => { e.preventDefault(); handleSend(); });
-        if(commentInput) commentInput.addEventListener('keypress', (e) => { if(e.key === 'Enter') { e.preventDefault(); handleSend(); } });
+
+        if(commentForm) {
+            commentForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                handleSend();
+            });
+        }
 
         commentsListEl.addEventListener('click', (e) => {
             const delCommentBtn = e.target.closest('.comment-delete-btn');
@@ -572,7 +584,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // --- TAM EKRAN & ZOOM SİSTEMİ ---
+    // --- TAM EKRAN & ZOOM SİSTEMİ (HATALAR DÜZELTİLDİ) ---
     const fullscreenViewer = document.getElementById('fullscreen-viewer');
     const fullscreenImg = document.getElementById('fullscreen-image');
     const closeFullscreenBtn = document.getElementById('close-fullscreen-btn');
