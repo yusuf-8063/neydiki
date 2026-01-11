@@ -1,4 +1,4 @@
-// script.js - FINAL (ARIA FIX + FADE OUT + PERFORMANCE DEBOUNCE)
+// script.js - FINAL (MOBİL OTO YÜKSEKLİK SÜRÜMÜ)
 
 // Global değişkenler ve yardımcı fonksiyonlar
 function showNotification(message, type = 'info') {
@@ -51,10 +51,8 @@ function openModal(modal) {
     }
 }
 
-// ARIA HATASI ÇÖZÜMÜ BURADA YAPILDI
 function closeModal(modal) {
     if (modal) {
-        // HATA GİDERME: Modal kapanmadan önce odağı (focus) temizle
         if (document.activeElement && modal.contains(document.activeElement)) {
             document.activeElement.blur();
         }
@@ -132,6 +130,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (e.target === discussionModal) closeModal(discussionModal);
     });
 
+    // --- GÜNCELLENEN KISIM BURASI ---
     const style = document.createElement('style');
     style.textContent = `
         @keyframes slideIn { 
@@ -152,9 +151,27 @@ document.addEventListener('DOMContentLoaded', function() {
         ::-webkit-scrollbar-thumb { background: var(--primary); border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #0081d6; }
         * { scrollbar-width: thin; scrollbar-color: var(--primary) var(--background); }
-        .card-image { max-width: 100%; height: auto; }
-        @media (max-width: 768px) { .card-image { height: 400px !important; } }
-        @media (max-width: 480px) { .card-image { height: 350px !important; } }
+        
+        /* GÜNCELLENMİŞ OTO YÜKSEKLİK AYARLARI */
+        .card-image { 
+            max-width: 100%; 
+            height: auto !important; /* Otomatik yükseklik */
+            width: 100%; 
+            object-fit: contain; 
+        }
+        
+        @media (max-width: 768px) { 
+            .card-image { 
+                height: auto !important; 
+                max-height: 600px !important; /* Max sınır 600px */
+            } 
+        }
+        @media (max-width: 480px) { 
+            .card-image { 
+                height: auto !important; 
+                max-height: 500px !important; /* Max sınır 500px */
+            } 
+        }
     `;
     document.head.appendChild(style);
 });
@@ -172,11 +189,10 @@ function checkLayout() {
     }
 }
 
-// PERFORMANS: Resize işlemini yavaşlat (Debounce)
 let resizeTimeout;
 window.addEventListener('resize', function() {
     clearTimeout(resizeTimeout);
-    resizeTimeout = setTimeout(checkLayout, 200); // 200ms gecikme
+    resizeTimeout = setTimeout(checkLayout, 200);
 });
 
 document.addEventListener('DOMContentLoaded', checkLayout);
