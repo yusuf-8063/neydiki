@@ -1,4 +1,4 @@
-// script.js - BULANIKLIK DÜZELTMESİ (FADE OUT EKLENDİ)
+// script.js - FINAL (ARIA FIX + FADE OUT)
 
 // Global değişkenler ve yardımcı fonksiyonlar
 function showNotification(message, type = 'info') {
@@ -27,24 +27,19 @@ function showNotification(message, type = 'info') {
 
 function openModal(modal) {
     if (modal) {
-        // YENİ: Açılmadan önce şeffaf yap
         modal.style.opacity = '0';
         modal.style.display = 'flex';
         modal.setAttribute('aria-hidden', 'false');
         document.body.style.overflow = 'hidden';
         
-        // Animasyon için (Konteynerin de opaklığını artır)
         setTimeout(() => {
-            // YENİ: Arka planı yavaşça getir
             modal.style.opacity = '1';
-            
             if (modal.querySelector('.modal-content')) {
                 modal.querySelector('.modal-content').style.transform = 'scale(1)';
                 modal.querySelector('.modal-content').style.opacity = '1';
             }
         }, 10);
         
-        // Tartışma modalı için özel işlemler
         if (modal.id === 'discussion-modal') {
             setTimeout(() => {
                 const commentsList = document.getElementById('comments-list');
@@ -56,10 +51,15 @@ function openModal(modal) {
     }
 }
 
-// GÜNCELLENEN KISIM: closeModal
+// ARIA HATASI ÇÖZÜMÜ BURADA YAPILDI
 function closeModal(modal) {
     if (modal) {
-        // YENİ: Kapanırken arka planı/bulanıklığı soldur
+        // HATA GİDERME: Modal kapanmadan önce odağı (focus) temizle
+        // Bu sayede "Blocked aria-hidden on an element because its descendant retained focus" hatası engellenir.
+        if (document.activeElement && modal.contains(document.activeElement)) {
+            document.activeElement.blur();
+        }
+
         modal.style.opacity = '0';
 
         if (modal.querySelector('.modal-content')) {
@@ -69,12 +69,10 @@ function closeModal(modal) {
         
         setTimeout(() => {
             modal.style.display = 'none';
-            // YENİ: Bir sonraki açılış için opacity'yi sıfırla (temizlik)
             modal.style.opacity = ''; 
             modal.setAttribute('aria-hidden', 'true');
             document.body.style.overflow = 'auto';
 
-            // ÖZEL DURUM: Eğer kapanan "Yeni Gönderi" penceresiyse navigasyonu düzelt
             if (modal.id === 'add-post-modal') {
                 if (typeof window.restoreNavState === 'function') {
                     window.restoreNavState();
@@ -116,21 +114,18 @@ function setActiveNav(navItem) {
     }
 }
 
-// Global Event Listeners
 document.addEventListener('DOMContentLoaded', function() {
     const addPostModal = document.getElementById('add-post-modal');
     const settingsModal = document.getElementById('settings-modal');
     const editProfileModal = document.getElementById('edit-profile-modal');
     const discussionModal = document.getElementById('discussion-modal');
 
-    // Modal kapatma olayları
     document.getElementById('close-add-post')?.addEventListener('click', () => closeModal(addPostModal));
     document.getElementById('close-edit-profile')?.addEventListener('click', () => closeModal(editProfileModal));
     document.getElementById('close-settings')?.addEventListener('click', () => closeModal(settingsModal));
     document.getElementById('close-discussion')?.addEventListener('click', () => closeModal(discussionModal));
     document.getElementById('cancel-edit-btn')?.addEventListener('click', () => closeModal(editProfileModal));
 
-    // Modal dışına tıklama
     window.addEventListener('click', (e) => {
         if (e.target === addPostModal) closeModal(addPostModal);
         if (e.target === editProfileModal) closeModal(editProfileModal);
@@ -138,7 +133,6 @@ document.addEventListener('DOMContentLoaded', function() {
         if (e.target === discussionModal) closeModal(discussionModal);
     });
 
-    // CSS Animasyon
     const style = document.createElement('style');
     style.textContent = `
         @keyframes slideIn { 
@@ -149,95 +143,29 @@ document.addEventListener('DOMContentLoaded', function() {
             from { transform: translateX(0); opacity: 1; } 
             to { transform: translateX(100%); opacity: 0; } 
         }
-        
-        .delete-post-btn {
-            background: none;
-            border: none;
-            color: var(--text-light);
-            cursor: pointer;
-            padding: 8px;
-            border-radius: 8px;
-            transition: all 0.3s ease;
-            font-size: 16px;
-            margin-left: auto;
-        }
-
-        .delete-post-btn:hover {
-            background-color: rgba(255, 71, 87, 0.1);
-            color: #ff4757;
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 60px 20px;
-            color: var(--text-light);
-        }
-
-        .empty-state i {
-            margin-bottom: 16px;
-            font-size: 48px;
-        }
-
-        .empty-state h3 {
-            margin-bottom: 8px;
-            font-weight: 600;
-            font-size: 18px;
-        }
-        
-        ::-webkit-scrollbar {
-            width: 8px;
-        }
-        
-        ::-webkit-scrollbar-track {
-            background: var(--background);
-            border-radius: 4px;
-        }
-        
-        ::-webkit-scrollbar-thumb {
-            background: var(--primary);
-            border-radius: 4px;
-        }
-        
-        ::-webkit-scrollbar-thumb:hover {
-            background: #0081d6;
-        }
-        
-        * {
-            scrollbar-width: thin;
-            scrollbar-color: var(--primary) var(--background);
-        }
-        
-        .card-image {
-            max-width: 100%;
-            height: auto;
-        }
-        
-        @media (max-width: 768px) {
-            .card-image {
-                height: 400px !important;
-            }
-        }
-        
-        @media (max-width: 480px) {
-            .card-image {
-                height: 350px !important;
-            }
-        }
+        .delete-post-btn { background: none; border: none; color: var(--text-light); cursor: pointer; padding: 8px; border-radius: 8px; transition: all 0.3s ease; font-size: 16px; margin-left: auto; }
+        .delete-post-btn:hover { background-color: rgba(255, 71, 87, 0.1); color: #ff4757; }
+        .empty-state { text-align: center; padding: 60px 20px; color: var(--text-light); }
+        .empty-state i { margin-bottom: 16px; font-size: 48px; }
+        .empty-state h3 { margin-bottom: 8px; font-weight: 600; font-size: 18px; }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: var(--background); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: var(--primary); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #0081d6; }
+        * { scrollbar-width: thin; scrollbar-color: var(--primary) var(--background); }
+        .card-image { max-width: 100%; height: auto; }
+        @media (max-width: 768px) { .card-image { height: 400px !important; } }
+        @media (max-width: 480px) { .card-image { height: 350px !important; } }
     `;
     document.head.appendChild(style);
 });
 
-// Profil sayfasından gönderi silindiğinde ana sayfayı yenile
 function refreshHomeFeed() {
-    if (typeof loadImageFeed === 'function') {
-        loadImageFeed();
-    }
+    if (typeof loadImageFeed === 'function') { loadImageFeed(); }
 }
 
-// Responsive layout kontrolü
 function checkLayout() {
     const filtersSidebar = document.getElementById('filters-sidebar');
-    
     if (window.innerWidth <= 768) {
         if (filtersSidebar && filtersSidebar.classList.contains('active')) {
             filtersSidebar.classList.remove('active');
