@@ -1,4 +1,4 @@
-// account.js - GÜNCELLENMİŞ VERSİYON (Daha Az Butonu Eklendi)
+// account.js - GÜNCELLENMİŞ VERSİYON (WebP Otomatik Dönüşüm)
 document.addEventListener('DOMContentLoaded', function() {
     // --- ELEMENTLER ---
     const loginForm = document.getElementById('login-account-form');
@@ -323,13 +323,47 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
 
+        // YENİ EKLENEN FONKSİYON: Profil resmini WebP'ye çevirir
+        function convertToWebP(base64Str) {
+            return new Promise((resolve) => {
+                let img = new Image();
+                img.src = base64Str;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    // Profil resmi için 500x500 yeterli, çok büyük resme gerek yok
+                    const maxWidth = 500; 
+                    const maxHeight = 500;
+                    let width = img.width;
+                    let height = img.height;
+                    
+                    if (width > height) {
+                        if (width > maxWidth) { height *= maxWidth / width; width = maxWidth; }
+                    } else {
+                        if (height > maxHeight) { width *= maxHeight / height; height = maxHeight; }
+                    }
+                    
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    
+                    // WebP formatında çıktı al
+                    resolve(canvas.toDataURL('image/webp', 0.8));
+                };
+                img.onerror = () => resolve(base64Str); // Hata olursa orijinali döndür
+            });
+        }
+
         if (uploadInput) {
             uploadInput.addEventListener('change', function(e) {
                 if (e.target.files && e.target.files[0]) {
                     const reader = new FileReader();
                     reader.onload = function(ev) {
-                        activeProfilePicData = ev.target.result;
-                        updatePreviewUI(activeProfilePicData);
+                        // DEĞİŞİKLİK: Resmi doğrudan kaydetmek yerine önce WebP'ye çeviriyoruz
+                        convertToWebP(ev.target.result).then(webpData => {
+                            activeProfilePicData = webpData;
+                            updatePreviewUI(activeProfilePicData);
+                        });
                     }
                     reader.readAsDataURL(e.target.files[0]);
                 }
