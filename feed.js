@@ -1,6 +1,5 @@
-// feed.js - GOOGLE OTO-DOLDURMA KESİN ÇÖZÜM (READONLY HACK)
+// feed.js - GOOGLE OTO-DOLDURMA KESİN ÇÖZÜM (READONLY HACK) + PERFORMANCE
 document.addEventListener('DOMContentLoaded', function() {
-    
     // --- DİNAMİK CSS STİLLERİ ---
     const style = document.createElement('style');
     style.textContent = `
@@ -259,10 +258,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     <div style="color:white; font-weight:600; font-size:18px; text-align:center; text-shadow:0 2px 4px rgba(0,0,0,0.1);">Düşünce Paylaşımı</div>
                 </div>`;
         } else {
+            // PERFORMANS: fetchpriority eklendi (İlk resim öncelikli indirilir)
             contentHtml = `
                 <div class="post-media-container">
                     <div class="media-blur-bg" style="background-image: url('${post.image}')"></div>
-                    <img src="${post.image}" class="card-image" loading="${isPriority ? 'eager' : 'lazy'}" decoding="async" alt="Gönderi resmi: ${post.caption || 'Başlıksız'}">
+                    <img src="${post.image}" class="card-image" loading="${isPriority ? 'eager' : 'lazy'}" ${isPriority ? 'fetchpriority="high"' : ''} decoding="async" alt="Gönderi resmi: ${post.caption || 'Başlıksız'}">
                 </div>`;
         }
 
