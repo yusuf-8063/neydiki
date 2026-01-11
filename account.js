@@ -1,4 +1,4 @@
-// account.js - GÜNCELLENMİŞ VERSİYON (WebP Otomatik Dönüşüm)
+// account.js - FINAL SÜRÜM (Profil, Gönderi ve Yorum Güncelleme Dahil)
 document.addEventListener('DOMContentLoaded', function() {
     // --- ELEMENTLER ---
     const loginForm = document.getElementById('login-account-form');
@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentDetailPostId = null;
     let currentPostData = null; 
 
-    // --- CSS YAMASI (Yorum Kısaltma Stilleri) ---
+    // --- CSS YAMASI (Yorum Kısaltma ve Modal Stilleri) ---
     const fixModalStyle = document.createElement('style');
     fixModalStyle.textContent = `
         /* MODAL STİLLERİ */
@@ -279,7 +279,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // --- PROFİL DÜZENLEME SİSTEMİ ---
+    // --- PROFİL DÜZENLEME SİSTEMİ (BATCH UPDATE EKLENDİ) ---
     function setupProfileEditing() {
         const editBtn = document.getElementById('edit-account-btn');
         const saveBtn = document.getElementById('save-profile-btn');
@@ -323,14 +323,13 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
 
-        // YENİ EKLENEN FONKSİYON: Profil resmini WebP'ye çevirir
+        // Profil resmini WebP'ye çevirir
         function convertToWebP(base64Str) {
             return new Promise((resolve) => {
                 let img = new Image();
                 img.src = base64Str;
                 img.onload = () => {
                     const canvas = document.createElement('canvas');
-                    // Profil resmi için 500x500 yeterli, çok büyük resme gerek yok
                     const maxWidth = 500; 
                     const maxHeight = 500;
                     let width = img.width;
@@ -347,10 +346,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(img, 0, 0, width, height);
                     
-                    // WebP formatında çıktı al
                     resolve(canvas.toDataURL('image/webp', 0.8));
                 };
-                img.onerror = () => resolve(base64Str); // Hata olursa orijinali döndür
+                img.onerror = () => resolve(base64Str);
             });
         }
 
@@ -359,7 +357,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (e.target.files && e.target.files[0]) {
                     const reader = new FileReader();
                     reader.onload = function(ev) {
-                        // DEĞİŞİKLİK: Resmi doğrudan kaydetmek yerine önce WebP'ye çeviriyoruz
                         convertToWebP(ev.target.result).then(webpData => {
                             activeProfilePicData = webpData;
                             updatePreviewUI(activeProfilePicData);
@@ -379,10 +376,14 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
 
+        // --- PROFİL KAYDETME VE BATCH UPDATE ---
         if (saveBtn) {
-            saveBtn.addEventListener('click', function() {
+            saveBtn.addEventListener('click', async function() {
                 const user = JSON.parse(localStorage.getItem('currentUser'));
                 if (!user) return;
+
+                // Eski kullanıcı adını sakla (Yorumları bulmak için lazım)
+                const oldUsername = user.username; 
 
                 const newUsername = inputUsername.value.trim();
                 const newFullname = inputFullname.value.trim();
@@ -391,18 +392,67 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (!newUsername) { showNotification('Kullanıcı adı boş olamaz!', 'error'); return; }
 
                 const originalBtnText = saveBtn.textContent;
-                saveBtn.textContent = 'Kaydediliyor...';
+                saveBtn.textContent = 'Veriler güncelleniyor...';
                 saveBtn.disabled = true;
 
                 let updateData = { username: newUsername, fullname: newFullname, birthdate: newBirthdate, profilePic: activeProfilePicData };
 
-                db.collection("users").doc(user.uid).update(updateData).then(() => {
+                try {
+                    // 1. Kullanıcı Profilini Güncelle
+                    await db.collection("users").doc(user.uid).update(updateData);
+
+                    // 2. TÜM GÖNDERİLERİ ÇEK VE GÜNCELLE
+                    const snapshot = await db.collection("posts").get();
+                    const batch = db.batch();
+                    let batchCount = 0;
+
+                    snapshot.forEach(doc => {
+                        const post = doc.data();
+                        let isDirty = false;
+                        let updates = {};
+
+                        // A) Gönderi sahibi ben isem
+                        if (post.userId === user.uid) {
+                            updates.username = newUsername;
+                            updates.userProfilePic = activeProfilePicData;
+                            isDirty = true;
+                        }
+
+                        // B) Yorumlarda benim adım varsa
+                        if (post.comments && post.comments.length > 0) {
+                            let commentsChanged = false;
+                            const updatedComments = post.comments.map(comment => {
+                                if (comment.username === oldUsername) {
+                                    commentsChanged = true;
+                                    return { ...comment, username: newUsername };
+                                }
+                                return comment;
+                            });
+
+                            if (commentsChanged) {
+                                updates.comments = updatedComments;
+                                isDirty = true;
+                            }
+                        }
+
+                        if (isDirty) {
+                            batch.update(doc.ref, updates);
+                            batchCount++;
+                        }
+                    });
+
+                    if (batchCount > 0) {
+                        await batch.commit();
+                    }
+
+                    // 3. Local Storage Güncelle
                     user.username = newUsername;
                     user.fullname = newFullname;
                     user.birthdate = newBirthdate;
                     user.profilePic = activeProfilePicData;
                     localStorage.setItem('currentUser', JSON.stringify(user));
 
+                    // 4. Profil UI Güncelle
                     const displayFullname = document.getElementById('account-fullname');
                     const displayUsername = document.getElementById('account-username-display');
                     const accountAvatar = document.getElementById('account-avatar');
@@ -421,15 +471,50 @@ document.addEventListener('DOMContentLoaded', function() {
                         }
                     }
 
+                    // 5. DOM GÜNCELLEMESİ (Sayfa yenilemeden)
+                    
+                    // A) Kartlardaki İsimleri Güncelle
+                    document.querySelectorAll('.image-card').forEach(card => {
+                        // Kendi postum mu?
+                        if (card.querySelector('.delete-post-btn')) {
+                            const usernameEl = card.querySelector('.username');
+                            const captionStrong = card.querySelector('.card-content strong');
+                            const avatarEl = card.querySelector('.user-avatar');
+
+                            if (usernameEl) usernameEl.textContent = newUsername;
+                            if (captionStrong) captionStrong.textContent = newUsername;
+                            
+                            if (avatarEl) {
+                                if (activeProfilePicData) {
+                                    avatarEl.style.background = `url('${activeProfilePicData}') center/cover no-repeat`;
+                                    avatarEl.innerHTML = '';
+                                } else {
+                                    avatarEl.style.background = '#e1e1e1';
+                                    avatarEl.innerHTML = '<i class="fas fa-user" style="color: #999; font-size: 18px;"></i>';
+                                }
+                            }
+                        }
+                    });
+
+                    // B) Yorumlardaki İsimleri Güncelle
+                    document.querySelectorAll('.comment-user').forEach(userEl => {
+                        if (userEl.textContent === oldUsername) {
+                            userEl.textContent = newUsername;
+                            const commentItem = userEl.closest('.comment-item');
+                            if (commentItem) commentItem.classList.add('mine');
+                        }
+                    });
+
                     if (window.closeModal && modal) { window.closeModal(modal); } else if (modal) { modal.style.display = 'none'; }
-                    showNotification('Profil güncellendi!', 'success');
-                }).catch((error) => {
+                    showNotification('Profil ve tüm içerikler güncellendi!', 'success');
+
+                } catch (error) {
                     console.error("Güncelleme hatası: ", error);
-                    showNotification('Hata oluştu.', 'error');
-                }).finally(() => {
+                    showNotification('Hata oluştu: ' + error.message, 'error');
+                } finally {
                     saveBtn.textContent = originalBtnText;
                     saveBtn.disabled = false;
-                });
+                }
             });
         }
     }
@@ -442,9 +527,8 @@ document.addEventListener('DOMContentLoaded', function() {
             const isMine = currentUser && currentUser.username === c.username;
             
             // Kısaltma Mantığı
-            const isLongText = c.text && c.text.length > 120; // 120 karakterden uzunsa kısalt
+            const isLongText = c.text && c.text.length > 120;
             const textClass = isLongText ? 'comment-text collapsed' : 'comment-text';
-            // Başlangıçta "Devamını oku" butonu ekle
             const readMoreBtn = isLongText ? '<button class="read-more-btn">Devamını oku</button>' : '';
             
             const deleteBtnHtml = isMine ? `<button class="comment-delete-btn" data-id="${c.id}" style="position: absolute; top: 3px; right: 3px; border: none; background: none; color: #8e8e8e; cursor: pointer; font-size: 10px;"><i class="fas fa-trash"></i></button>` : '';
@@ -463,7 +547,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }).join('');
     }
 
-    // --- YORUM SİSTEMİ (GÜNCELLENMİŞ) ---
+    // --- YORUM SİSTEMİ ---
     function setupCommentSystem() {
         const submitBtn = document.getElementById('submit-comment');
         const inputElement = document.getElementById('comment-input');
@@ -500,29 +584,24 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         };
 
-        // Event Delegation: Liste üzerindeki tıklamaları yakala
+        // Event Delegation
         const commentsList = document.getElementById('comments-list');
         if (commentsList) {
             commentsList.addEventListener('click', function(e) {
-                // Devamını Oku / Daha Az Butonu
                 if (e.target.classList.contains('read-more-btn')) {
                     e.preventDefault();
-                    const textDiv = e.target.previousElementSibling; // comment-text div'ini bul
-                    
+                    const textDiv = e.target.previousElementSibling; 
                     if (textDiv && textDiv.classList.contains('comment-text')) {
                         if (textDiv.classList.contains('collapsed')) {
-                            // AÇMA: Sınıfı kaldır ve butonu değiştir
                             textDiv.classList.remove('collapsed');
                             e.target.textContent = 'Daha az';
                         } else {
-                            // KAPATMA: Sınıfı ekle ve butonu eski haline getir
                             textDiv.classList.add('collapsed');
                             e.target.textContent = 'Devamını oku';
                         }
                     }
                 }
 
-                // Silme Butonu
                 const delBtn = e.target.closest('.comment-delete-btn');
                 if (delBtn) {
                     e.preventDefault();
