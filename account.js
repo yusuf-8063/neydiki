@@ -1,4 +1,4 @@
-// account.js - DÜZELTİLMİŞ TAM SÜRÜM (Hesap Silme Özelliği + Şifre Göster/Gizle Eklendi)
+// account.js - GÜNCELLENMİŞ VERSİYON (Daha Az Butonu Eklendi)
 document.addEventListener('DOMContentLoaded', function() {
     // --- ELEMENTLER ---
     const loginForm = document.getElementById('login-account-form');
@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentDetailPostId = null;
     let currentPostData = null; 
 
-    // --- CSS YAMASI ---
+    // --- CSS YAMASI (Yorum Kısaltma Stilleri) ---
     const fixModalStyle = document.createElement('style');
     fixModalStyle.textContent = `
         /* MODAL STİLLERİ */
@@ -63,6 +63,27 @@ document.addEventListener('DOMContentLoaded', function() {
         /* Şifre Hatası Sallama Efekti */
         .error-shake { animation: shake 0.4s ease-in-out; }
         @keyframes shake { 0%, 100% { transform: translateX(0); } 20%, 60% { transform: translateX(-5px); border-color: #ff4757; } 40%, 80% { transform: translateX(5px); } }
+
+        /* Yorum Kısaltma ve Lazy Load Stilleri */
+        .comment-text.collapsed {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .read-more-btn {
+            background: none;
+            border: none;
+            color: var(--text-light);
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            padding: 0;
+            margin-top: 2px;
+            display: inline-block;
+        }
+        .read-more-btn:hover { text-decoration: underline; color: var(--primary); }
     `;
     document.head.appendChild(fixModalStyle);
 
@@ -80,7 +101,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // --- ELEMENT SEÇİMLERİ ---
     const addNewPostBtn = document.getElementById('add-new-post-btn');
     const logoutBtn = document.getElementById('logout-btn');
-    const deleteAccountBtn = document.getElementById('delete-account-btn'); // YENİ EKLENDİ
+    const deleteAccountBtn = document.getElementById('delete-account-btn'); 
     const loginBtn = document.getElementById('account-login-btn');
     const registerBtn = document.getElementById('account-register-btn');
     
@@ -142,12 +163,10 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
         
-        // YENİ: Hesabı Sil Butonu
         if (deleteAccountBtn) {
             deleteAccountBtn.addEventListener('click', handleDeleteAccount);
         }
 
-        // Parolamı Unuttum Butonu
         if (forgotPasswordBtn) {
             forgotPasswordBtn.addEventListener('click', function() {
                 if(loginForm) loginForm.classList.remove('visible-flex');
@@ -157,58 +176,40 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
 
-        // Sıfırlama Bağlantısı Gönder Butonu
         if (sendResetBtn) {
             sendResetBtn.addEventListener('click', handlePasswordReset);
         }
         
-        // YENİ: KAYIT OL EKRANI İÇİN ŞİFRE GÖSTER/GİZLE ÖZELLİĞİ
         const toggleRegPassBtn = document.getElementById('toggle-register-password');
         const regPassInput = document.getElementById('register-password');
 
         if (toggleRegPassBtn && regPassInput) {
             toggleRegPassBtn.addEventListener('click', function(e) {
                 e.preventDefault();
-                // Tipe göre değişim yap
                 const type = regPassInput.getAttribute('type') === 'password' ? 'text' : 'password';
                 regPassInput.setAttribute('type', type);
-                
-                // İkonu değiştir
                 const icon = this.querySelector('i');
-                if (type === 'text') {
-                    icon.className = 'fas fa-eye-slash'; // Göz kapalı veya çizik (FontAwesome sürümüne göre değişebilir)
-                } else {
-                    icon.className = 'fas fa-eye'; // Normal göz
-                }
+                if (type === 'text') { icon.className = 'fas fa-eye-slash'; } else { icon.className = 'fas fa-eye'; }
             });
         }
 
-        // YENİ: GİRİŞ EKRANI İÇİN ŞİFRE GÖSTER/GİZLE ÖZELLİĞİ (BURASI EKLENDİ)
         const toggleLoginPassBtn = document.getElementById('toggle-login-password');
         const loginPassInput = document.getElementById('account-password');
 
         if (toggleLoginPassBtn && loginPassInput) {
             toggleLoginPassBtn.addEventListener('click', function(e) {
                 e.preventDefault();
-                // Tipe göre değişim yap
                 const type = loginPassInput.getAttribute('type') === 'password' ? 'text' : 'password';
                 loginPassInput.setAttribute('type', type);
-                
-                // İkonu değiştir
                 const icon = this.querySelector('i');
-                if (type === 'text') {
-                    icon.className = 'fas fa-eye-slash'; // Göz kapalı veya çizik
-                } else {
-                    icon.className = 'fas fa-eye'; // Normal göz
-                }
+                if (type === 'text') { icon.className = 'fas fa-eye-slash'; } else { icon.className = 'fas fa-eye'; }
             });
         }
     }
     
-    // --- YENİ EKLENEN: HESAP SİLME FONKSİYONU ---
+    // --- HESAP SİLME FONKSİYONU ---
     async function handleDeleteAccount() {
         if (!confirm('HESABINIZI SİLMEK ÜZERESİNİZ!\n\nBu işlem geri alınamaz. Tüm gönderileriniz, yorumlarınız ve beğenileriniz kalıcı olarak silinecektir.\n\nDevam etmek istiyor musunuz?')) return;
-        
         if (!confirm('Son onay: Hesabınızı ve tüm verilerinizi silmek istediğinize emin misiniz?')) return;
 
         const user = firebase.auth().currentUser;
@@ -226,19 +227,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
         try {
             const batch = db.batch();
-
-            // 1. Kullanıcının gönderilerini sil
             const postsSnapshot = await db.collection('posts').where('uid', '==', user.uid).get();
-            postsSnapshot.forEach(doc => {
-                batch.delete(doc.ref);
-            });
-
-            // Batch limitini aşmamak için önce bunu commitleyelim
+            postsSnapshot.forEach(doc => { batch.delete(doc.ref); });
             await batch.commit();
 
-            // 2. Diğer gönderilerdeki yorumları ve beğenileri temizle
-            // İstemci tarafında tüm postları okumak maliyetlidir ancak "her şey" istendiği için yapıyoruz.
-            
             const allPostsSnapshot = await db.collection('posts').get();
             const updatePromises = [];
 
@@ -247,18 +239,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 let isModified = false;
                 let updates = {};
 
-                // Beğeni kaldırma
                 if (post.likedBy && post.likedBy.includes(user.uid)) {
                     updates.likedBy = firebase.firestore.FieldValue.arrayRemove(user.uid);
                     updates.likes = firebase.firestore.FieldValue.increment(-1);
                     isModified = true;
                 }
 
-                // Yorum kaldırma (Username üzerinden eşleştiriyoruz)
                 if (post.comments && post.comments.length > 0) {
                     const initialLength = post.comments.length;
                     const newComments = post.comments.filter(c => c.username !== dbUser.username);
-                    
                     if (newComments.length !== initialLength) {
                         updates.comments = newComments;
                         isModified = true;
@@ -271,11 +260,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
 
             await Promise.all(updatePromises);
-
-            // 3. Kullanıcı dökümanını sil
             await db.collection('users').doc(user.uid).delete();
-
-            // 4. Auth kullanıcısını sil
             await user.delete();
 
             alert('Hesabınız başarıyla silindi.');
@@ -286,7 +271,6 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error("Silme hatası:", error);
             deleteBtn.innerHTML = originalText;
             deleteBtn.disabled = false;
-
             if (error.code === 'auth/requires-recent-login') {
                 alert('Güvenlik gereği hesabınızı silmek için yeniden giriş yapmanız gerekmektedir. Lütfen çıkış yapıp tekrar girdikten sonra deneyin.');
             } else {
@@ -416,7 +400,36 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // --- YORUM SİSTEMİ ---
+    // --- YENİ YORUM RENDER FONKSİYONU ---
+    function renderAccountCommentsHTML(comments, currentUser) {
+        if (!comments || comments.length === 0) return '<div class="empty-comments-msg" style="text-align:center; padding:20px; color:#8e8e8e;">Henüz yorum yok.</div>';
+        
+        return comments.map(c => {
+            const isMine = currentUser && currentUser.username === c.username;
+            
+            // Kısaltma Mantığı
+            const isLongText = c.text && c.text.length > 120; // 120 karakterden uzunsa kısalt
+            const textClass = isLongText ? 'comment-text collapsed' : 'comment-text';
+            // Başlangıçta "Devamını oku" butonu ekle
+            const readMoreBtn = isLongText ? '<button class="read-more-btn">Devamını oku</button>' : '';
+            
+            const deleteBtnHtml = isMine ? `<button class="comment-delete-btn" data-id="${c.id}" style="position: absolute; top: 3px; right: 3px; border: none; background: none; color: #8e8e8e; cursor: pointer; font-size: 10px;"><i class="fas fa-trash"></i></button>` : '';
+
+            return `
+                <div class="comment-item ${isMine ? 'mine' : ''}">
+                    ${deleteBtnHtml}
+                    <div class="comment-header"><span class="comment-user">${c.username}</span></div>
+                    <div class="${textClass}">${c.text}</div>
+                    ${readMoreBtn}
+                    <div class="comment-footer">
+                        <div class="footer-left"></div>
+                        <div class="footer-right"><span class="comment-time">${timeAgo(c.timestamp)}</span></div>
+                    </div>
+                </div>`;
+        }).join('');
+    }
+
+    // --- YORUM SİSTEMİ (GÜNCELLENMİŞ) ---
     function setupCommentSystem() {
         const submitBtn = document.getElementById('submit-comment');
         const inputElement = document.getElementById('comment-input');
@@ -431,40 +444,59 @@ document.addEventListener('DOMContentLoaded', function() {
 
             const newComment = { id: Date.now().toString(), username: user.username, text: text, timestamp: new Date().toISOString(), likes: 0, likedBy: [] };
 
-            const commentsList = document.getElementById('comments-list');
-            const emptyMsg = commentsList.querySelector('.empty-comments-msg');
-            if(emptyMsg) emptyMsg.remove();
-
-            const commentDiv = document.createElement('div');
-            commentDiv.className = 'comment-item mine';
-            commentDiv.innerHTML = `
-                <button class="comment-delete-btn" data-id="${newComment.id}" style="position: absolute; top: 3px; right: 3px; border: none; background: none; color: #8e8e8e; cursor: pointer; font-size: 10px;"><i class="fas fa-trash"></i></button>
-                <div class="comment-header"><span class="comment-user">${newComment.username}</span></div>
-                <div class="comment-text">${newComment.text}</div>
-                <div class="comment-footer"><div class="footer-left"></div><div class="footer-right"><span class="comment-time">${timeAgo(newComment.timestamp)}</span></div></div>`;
-            
-            const delBtn = commentDiv.querySelector('.comment-delete-btn');
-            if(delBtn) delBtn.addEventListener('click', () => deleteCommentInAccount(newComment.id));
-
-            commentsList.appendChild(commentDiv);
             if(currentInput) currentInput.value = '';
             
-            const scrollContainer = document.querySelector('#discussion-modal .comments-section');
-            if(scrollContainer) setTimeout(() => { scrollContainer.scrollTop = scrollContainer.scrollHeight; }, 50);
-
             db.collection("posts").doc(currentDetailPostId).update({
                 comments: firebase.firestore.FieldValue.arrayUnion(newComment)
             }).then(() => {
                 if(currentPostData) {
                     if(!currentPostData.comments) currentPostData.comments = [];
                     currentPostData.comments.push(newComment);
+                    
+                    const commentsList = document.getElementById('comments-list');
+                    if (commentsList) {
+                        commentsList.innerHTML = renderAccountCommentsHTML(currentPostData.comments, user);
+                        const scrollContainer = document.querySelector('#discussion-modal .comments-section');
+                        if(scrollContainer) setTimeout(() => { scrollContainer.scrollTop = scrollContainer.scrollHeight; }, 50);
+                    }
                 }
             }).catch(err => {
                 console.error("Yorum hatası:", err);
                 alert("Yorum gönderilemedi.");
-                commentDiv.remove();
             });
         };
+
+        // Event Delegation: Liste üzerindeki tıklamaları yakala
+        const commentsList = document.getElementById('comments-list');
+        if (commentsList) {
+            commentsList.addEventListener('click', function(e) {
+                // Devamını Oku / Daha Az Butonu
+                if (e.target.classList.contains('read-more-btn')) {
+                    e.preventDefault();
+                    const textDiv = e.target.previousElementSibling; // comment-text div'ini bul
+                    
+                    if (textDiv && textDiv.classList.contains('comment-text')) {
+                        if (textDiv.classList.contains('collapsed')) {
+                            // AÇMA: Sınıfı kaldır ve butonu değiştir
+                            textDiv.classList.remove('collapsed');
+                            e.target.textContent = 'Daha az';
+                        } else {
+                            // KAPATMA: Sınıfı ekle ve butonu eski haline getir
+                            textDiv.classList.add('collapsed');
+                            e.target.textContent = 'Devamını oku';
+                        }
+                    }
+                }
+
+                // Silme Butonu
+                const delBtn = e.target.closest('.comment-delete-btn');
+                if (delBtn) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    deleteCommentInAccount(delBtn.dataset.id);
+                }
+            });
+        }
 
         if(submitBtn) {
             const newBtn = submitBtn.cloneNode(true);
@@ -481,9 +513,18 @@ document.addEventListener('DOMContentLoaded', function() {
     function deleteCommentInAccount(commentId) {
         if(!confirm("Yorumu silmek istiyor musunuz?")) return;
         if(!currentDetailPostId || !currentPostData) return;
+        
         const updatedComments = currentPostData.comments.filter(c => c.id !== commentId);
+        const user = JSON.parse(localStorage.getItem('currentUser'));
+
         db.collection("posts").doc(currentDetailPostId).update({ comments: updatedComments })
-            .then(() => { currentPostData.comments = updatedComments; openPostDetail(currentPostData); })
+            .then(() => { 
+                currentPostData.comments = updatedComments; 
+                const commentsList = document.getElementById('comments-list');
+                if (commentsList) {
+                    commentsList.innerHTML = renderAccountCommentsHTML(updatedComments, user);
+                }
+            })
             .catch(err => alert("Silme hatası: " + err.message));
     }
 
@@ -588,22 +629,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (discussionCaptionEl) discussionCaptionEl.innerHTML = `<strong>${post.username}</strong> ${post.caption || ''}`;
 
+        // Lazy/Batch Rendering ile yorumları yükle
         if (discussionCommentsList) {
-            discussionCommentsList.innerHTML = '';
+            discussionCommentsList.innerHTML = renderAccountCommentsHTML(post.comments, currentUser);
+            
             const input = document.getElementById('comment-input'); if(input) input.value = '';
-            if (post.comments && post.comments.length > 0) {
-                post.comments.forEach(comment => {
-                    const commentDiv = document.createElement('div');
-                    const isMine = currentUser && currentUser.username === comment.username;
-                    commentDiv.className = `comment-item ${isMine ? 'mine' : ''}`;
-                    const deleteBtnHtml = isMine ? `<button class="comment-delete-btn" data-id="${comment.id}" style="position: absolute; top: 3px; right: 3px; border: none; background: none; color: #8e8e8e; cursor: pointer; font-size: 10px;"><i class="fas fa-trash"></i></button>` : '';
-                    commentDiv.innerHTML = `${deleteBtnHtml}<div class="comment-header"><span class="comment-user">${comment.username}</span></div><div class="comment-text">${comment.text}</div><div class="comment-footer"><div class="footer-left"></div><div class="footer-right"><span class="comment-time">${timeAgo(comment.timestamp)}</span></div></div>`;
-                    if(isMine) { const btn = commentDiv.querySelector('.comment-delete-btn'); if(btn) btn.addEventListener('click', (e) => { e.stopPropagation(); deleteCommentInAccount(comment.id); }); }
-                    discussionCommentsList.appendChild(commentDiv);
-                });
-                setTimeout(() => { const scrollContainer = document.querySelector('#discussion-modal .comments-section'); if(scrollContainer) scrollContainer.scrollTop = scrollContainer.scrollHeight; }, 150);
-            } else { discussionCommentsList.innerHTML = '<div class="empty-comments-msg" style="text-align:center; padding:20px; color:#8e8e8e;">Henüz yorum yok.</div>'; }
+            
+            setTimeout(() => { 
+                const scrollContainer = document.querySelector('#discussion-modal .comments-section'); 
+                if(scrollContainer) scrollContainer.scrollTop = scrollContainer.scrollHeight; 
+            }, 150);
         }
+        
         if (window.openModal) window.openModal(discussionModal); else discussionModal.style.display = 'flex';
     }
 
@@ -615,11 +652,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function updateStats(p, l) { const pe = document.getElementById('account-posts'), le = document.getElementById('account-likes'); if(pe) pe.textContent = p; if(le) le.textContent = l; }
     
-    // --- GÜNCELLENEN FORM SWITCH MANTIĞI ---
+    // --- FORM SWITCH MANTIĞI ---
     function handleFormSwitch(e) {
         const type = e.target.getAttribute('data-form');
         
-        // Önce hepsini gizle
         if(loginForm) loginForm.classList.remove('visible-flex');
         if(registerForm) registerForm.classList.remove('visible-flex');
         if(forgotPasswordForm) forgotPasswordForm.classList.remove('visible-flex');
@@ -633,7 +669,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // --- GÜNCELLENEN LOGIN FONKSİYONU ---
+    // --- LOGIN FONKSİYONU ---
     function handleLogin() {
         const emailInput = document.getElementById('account-username');
         const passwordInput = document.getElementById('account-password');
@@ -677,7 +713,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     }
 
-    // --- YENİ EKLENEN: ŞİFRE SIFIRLAMA FONKSİYONU ---
+    // --- ŞİFRE SIFIRLAMA FONKSİYONU ---
     function handlePasswordReset() {
         const emailInput = document.getElementById('forgot-email');
         const email = emailInput ? emailInput.value.trim() : '';
