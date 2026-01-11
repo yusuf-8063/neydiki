@@ -1,4 +1,4 @@
-// feed.js - FINAL SÜRÜM (KLAVYE VE OTO-DOLDURMA FIX)
+// feed.js - TAMAMEN DÜZELTİLMİŞ SÜRÜM (AUTOCOMPLETE SORUNU GİDERİLDİ)
 document.addEventListener('DOMContentLoaded', function() {
     
     // --- DİNAMİK CSS STİLLERİ ---
@@ -275,7 +275,8 @@ document.addEventListener('DOMContentLoaded', function() {
             avatarContent = `<i class="fas fa-user" style="color: #999; font-size: 18px;" aria-hidden="true"></i>`;
         }
 
-        // DEĞİŞİKLİK: 'readonly' hack ve form yapısı
+        // AUTOCOMPLETE FIX BURADA YAPILDI:
+        // name="new_comment_..." ve autocomplete="off" eklendi.
         div.innerHTML = `
             <div class="card-header">
                 <div class="user-avatar" style="${avatarStyle}" aria-label="${post.username} profil resmi">${avatarContent}</div>
@@ -302,22 +303,20 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
             <div class="discussion-section" id="discussion-${post.id}">
                 <div class="comments-container"><div class="comments-list" data-loaded="false"></div></div>
-                <form class="add-comment" action="javascript:void(0);" autocomplete="off">
-                    <input type="text" style="display:none;" name="fake_username_prevent_autofill">
-                    <input type="password" style="display:none;" name="fake_password_prevent_autofill">
-
+                <div class="add-comment">
                     <input 
                         type="text" 
                         class="comment-input" 
-                        name="random_id_${Math.random().toString(36).substr(2, 9)}" 
+                        name="new_comment_${post.id}_${Math.floor(Math.random() * 10000)}" 
                         placeholder="Yorumunuzu yazın..." 
                         aria-label="Yorum yaz"
                         autocomplete="off" 
-                        readonly 
-                        onfocus="this.removeAttribute('readonly');"
+                        autocorrect="off" 
+                        autocapitalize="off" 
+                        spellcheck="false"
                     >
-                    <button type="submit" class="submit-comment inline-submit-btn" aria-label="Yorum gönder"><i class="fas fa-paper-plane"></i></button>
-                </form>
+                    <button class="submit-comment inline-submit-btn" aria-label="Yorum gönder"><i class="fas fa-paper-plane"></i></button>
+                </div>
             </div>
         `;
 
@@ -358,9 +357,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     openDiscussionIds.add(post.id);
                     const scrollContainer = div.querySelector('.comments-container');
                     if(scrollContainer) setTimeout(() => { scrollContainer.scrollTop = scrollContainer.scrollHeight; }, 100); 
-                    
-                    // DÜZELTME: FOCUS KODU KALDIRILDI - ARTIK KLAVYE OTOMATİK AÇILMAYACAK
-                    
+                    setTimeout(() => { if(commentInput) commentInput.focus({ preventScroll: true }); }, 300);
                 } else {
                     discSection.classList.remove('expanded'); 
                     openDiscussionIds.delete(post.id);
@@ -368,22 +365,14 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
         
-        const commentForm = div.querySelector('.add-comment');
+        const sendBtn = div.querySelector('.inline-submit-btn');
         const handleSend = () => { 
             sendComment(post.id, commentInput.value); 
             commentInput.value = ''; 
             commentsListEl.setAttribute('data-loaded', 'true');
-            if (document.activeElement === commentInput) {
-                commentInput.blur(); 
-            }
         };
-
-        if(commentForm) {
-            commentForm.addEventListener('submit', (e) => {
-                e.preventDefault();
-                handleSend();
-            });
-        }
+        if(sendBtn) sendBtn.addEventListener('click', (e) => { e.preventDefault(); handleSend(); });
+        if(commentInput) commentInput.addEventListener('keypress', (e) => { if(e.key === 'Enter') { e.preventDefault(); handleSend(); } });
 
         commentsListEl.addEventListener('click', (e) => {
             const delCommentBtn = e.target.closest('.comment-delete-btn');
