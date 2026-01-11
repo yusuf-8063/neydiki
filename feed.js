@@ -1,6 +1,6 @@
-// feed.js - LAZY LOAD + READ MORE UPDATE
+// feed.js - GÜNCELLENMİŞ VERSİYON (Yorum Kısaltma + Auto Scroll Eklendi)
 document.addEventListener('DOMContentLoaded', function() {
-    console.log("Feed.js: Optimize Edilmiş Sürüm (Lazy Comments + Read More)");
+    console.log("Feed.js: Optimize Edilmiş Sürüm (Lazy Comments + Read More/Less + Auto Scroll)");
 
     // --- DİNAMİK CSS STİLLERİ (Yorum Kısaltma İçin) ---
     const style = document.createElement('style');
@@ -420,6 +420,15 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                     discSection.classList.add('expanded'); 
                     openDiscussionIds.add(post.id);
+
+                    // --- YENİ EKLENEN KISIM: AÇILDIĞINDA EN AŞAĞI KAYDIR ---
+                    const scrollContainer = div.querySelector('.comments-container');
+                    if(scrollContainer) {
+                        setTimeout(() => {
+                            scrollContainer.scrollTop = scrollContainer.scrollHeight;
+                        }, 100); 
+                    }
+                    
                     setTimeout(() => { if(commentInput) commentInput.focus({ preventScroll: true }); }, 300);
                 } else {
                     discSection.classList.remove('expanded'); 
@@ -448,13 +457,20 @@ document.addEventListener('DOMContentLoaded', function() {
             const likeCommentBtn = e.target.closest('.comment-like-btn');
             if(likeCommentBtn) { e.preventDefault(); toggleCommentLike(post.id, likeCommentBtn.dataset.id); }
 
-            // Devamını Oku Butonu
+            // Devamını Oku / Daha Az Butonu (GÜNCELLENDİ)
             if(e.target.classList.contains('read-more-btn')) {
                 e.preventDefault();
                 const container = e.target.previousElementSibling; // .comment-text
                 if(container && container.classList.contains('comment-text')) {
-                    container.classList.remove('collapsed'); // Kısıtlamayı kaldır
-                    e.target.style.display = 'none'; // Butonu gizle
+                    if (container.classList.contains('collapsed')) {
+                        // Açılıyor
+                        container.classList.remove('collapsed');
+                        e.target.textContent = 'Daha az';
+                    } else {
+                        // Kapanıyor
+                        container.classList.add('collapsed');
+                        e.target.textContent = 'Devamını oku';
+                    }
                 }
             }
         });
@@ -462,7 +478,7 @@ document.addEventListener('DOMContentLoaded', function() {
         return div;
     }
 
-    // --- YENİ YORUM RENDER FONKSİYONU (Kısaltma Mantığı) ---
+    // --- YENİ YORUM RENDER FONKSİYONU ---
     function renderCommentsHTML(comments, currentUser) {
         if (!comments || comments.length === 0) return '<div style="text-align:center; color:var(--text-light); font-size:13px; padding:20px;">Henüz yorum yok. İlk yorumu sen yap!</div>';
         
@@ -476,6 +492,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // Metin uzunluk kontrolü
             const isLongText = c.text && c.text.length > 120; // 120 karakter üstü uzun sayılır
             const textClass = isLongText ? 'comment-text collapsed' : 'comment-text';
+            // Başlangıçta 'Devamını oku' butonu
             const readMoreBtn = isLongText ? '<button class="read-more-btn">Devamını oku</button>' : '';
 
             return `
