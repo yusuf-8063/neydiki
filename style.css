@@ -1,4 +1,4 @@
-/* style.css - FINAL SÜRÜM (ZOOM FIXED + SPINNER + PERFOMANCE) */
+/* style.css - FINAL SÜRÜM (ZOOM FIXED + SPINNER + PERFOMANCE + ACCESSIBILITY) */
 
 /* --- TEMEL AYARLAR --- */
 * { 
@@ -18,7 +18,8 @@
     --background: #fafafa;
     --surface: #ffffff;
     --text: #262626;
-    --text-light: #8e8e8e;
+    /* Kontrast Düzeltmesi: #8e8e8e -> #707070 (Daha koyu gri) */
+    --text-light: #707070;
     --border: #dbdbdb;
     --shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
     --shadow-strong: 0 8px 25px rgba(0, 0, 0, 0.15);
@@ -34,13 +35,19 @@
     --background: #121212;
     --surface: #1e1e1e;
     --text: #ffffff;
-    --text-light: #a8a8a8;
+    /* Kontrast Düzeltmesi (Dark Mode): #a8a8a8 -> #b0b0b0 */
+    --text-light: #b0b0b0;
     --border: #333333;
     --shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
     --shadow-strong: 0 8px 25px rgba(0, 0, 0, 0.4);
     --like-color: #ff3040;
     --like-light: rgba(255, 48, 64, 0.2);
     --touch-overlay: rgba(255, 255, 255, 0.1);
+}
+
+/* PERFORMANS: Sayfa kaydırma optimizasyonu */
+html {
+    scroll-behavior: smooth;
 }
 
 body {
@@ -50,6 +57,8 @@ body {
     transition: background-color 0.3s ease, color 0.3s ease;
     min-height: 100vh;
     overflow-x: hidden;
+    /* Font rendering optimizasyonu */
+    -webkit-font-smoothing: antialiased;
 }
 
 /* --- TIKLAMA GEÇİŞ AYARLARI --- */
@@ -83,11 +92,16 @@ body {
 .content-grid { display: grid; grid-template-columns: 1fr; gap: 20px; width: 100%; }
 
 /* --- KARTLAR --- */
+/* PERFORMANS: content-visibility ile ekran dışı render engelleme */
 .image-card {
     background-color: var(--surface); border-radius: 16px; overflow: hidden;
     box-shadow: var(--shadow); transition: all 0.3s ease;
     width: 100%; max-width: 600px; margin: 0 auto 20px auto;
     position: relative; z-index: 1;
+    /* Render performansı için kritik satırlar */
+    content-visibility: auto; 
+    contain-intrinsic-size: 1px 500px; /* Yaklaşık yükseklik tahmini */
+    contain: layout paint;
 }
 
 /* KART GİRİŞ ANİMASYONU */
@@ -145,6 +159,9 @@ body {
     box-shadow: 0 5px 20px rgba(0,0,0,0.3);
     margin: 0;
     border: none;
+    /* CLS Önleme */
+    min-height: 200px;
+    background-color: var(--surface);
 }
 
 .card-content { padding: 12px 16px; }
@@ -258,7 +275,13 @@ body {
 
 /* --- FİLTRELER --- */
 .filters-container { display: flex; align-items: center; margin-bottom: 25px; padding: 0 10px; }
-.filters-sidebar { width: 320px; background: var(--surface); border-radius: 20px; box-shadow: var(--shadow-strong); border: 1px solid var(--border); position: sticky; top: 85px; height: calc(100vh - 100px); flex-shrink: 0; display: flex; flex-direction: column; overflow: hidden; z-index: 90; }
+.filters-sidebar { 
+    width: 320px; background: var(--surface); border-radius: 20px; box-shadow: var(--shadow-strong); 
+    border: 1px solid var(--border); position: sticky; top: 85px; height: calc(100vh - 100px); 
+    flex-shrink: 0; display: flex; flex-direction: column; overflow: hidden; z-index: 90;
+    /* Performans */
+    will-change: transform;
+}
 .filters-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0; padding: 20px 25px; border-bottom: 1px solid var(--border); flex-shrink: 0; background: var(--surface); }
 .filters-title { font-size: 20px; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: 10px; }
 .filters-scroll-content { flex: 1; overflow-y: auto; padding: 25px; scrollbar-width: thin; scrollbar-color: rgba(0, 149, 246, 0.5) transparent; }
@@ -318,7 +341,12 @@ body {
 .filter-badge { background: #ff4757; color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; position: absolute; top: -5px; right: -5px; }
 
 /* --- MODAL --- */
-.modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5); z-index: 2000; justify-content: center; align-items: center; backdrop-filter: blur(4px); }
+.modal { 
+    display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+    background-color: rgba(0, 0, 0, 0.5); z-index: 2000; justify-content: center; align-items: center; 
+    backdrop-filter: blur(4px); 
+    will-change: opacity;
+}
 .modal-content { background-color: var(--surface); border-radius: 20px; width: 90%; max-width: 400px; padding: 24px; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2); animation: modalAppear 0.3s ease; max-height: 90vh; overflow-y: auto; border: 1px solid var(--border); }
 .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
 .modal-title { font-size: 20px; font-weight: 700; color: var(--text); letter-spacing: -0.5px; }
@@ -473,6 +501,7 @@ body {
     opacity: 0;
     transition: opacity 0.3s ease;
     overflow: hidden; /* Blur taşmasını önle */
+    will-change: opacity;
 }
 
 /* Ambiyans Bulanıklığı İçin Arka Plan */
