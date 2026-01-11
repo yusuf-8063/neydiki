@@ -171,9 +171,12 @@ body {
 .like-post-btn:active { transform: scale(0.92); background-color: transparent !important; }
 .action-btn:active { transform: scale(0.92); background-color: transparent !important; }
 
+/* DÜZELTİLDİ: discussion-btn buradan çıkarıldı */
 .action-btn:focus, 
-.like-post-btn:focus, 
-.discussion-btn:focus { outline: none; background-color: transparent !important; }
+.like-post-btn:focus { outline: none; background-color: transparent !important; }
+
+/* discussion-btn için odaklanma ayarı ayrıca eklendi (rengi koruması için) */
+.discussion-btn:focus { outline: none; }
 .like-post-btn:not(.active):focus { background-color: transparent !important; }
 .action-btn:not(.active):focus { background-color: transparent !important; }
 
