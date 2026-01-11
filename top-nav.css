@@ -1,4 +1,4 @@
-/* top-nav.css - MOBİL İÇİN HIZLI TEPKİ - FINAL */
+/* top-nav.css - MOBİL İÇİN HIZLI TEPKİ - FINAL (CLS OPTİMİZE EDİLDİ) */
 
 .top-nav {
     display: flex; justify-content: space-between;
@@ -13,10 +13,11 @@
 
 .logo { display: flex; align-items: center; height: 40px; }
 
-/* LOGO DÜZELTMESİ: Aspect-ratio kaldırıldı */
+/* LOGO DÜZELTMESİ: Genişlik ve Oran Sabitlendi (CLS Önleme) */
 .logo-image { 
     height: 70px; 
-    width: auto; 
+    width: 160px; /* HTML'deki değerle eşleşti */
+    aspect-ratio: 160 / 70; /* Tarayıcıya yer ayırmasını söyler */
     object-fit: contain; 
 }
 
@@ -65,7 +66,7 @@
     .top-nav { padding: 12px 15px; gap: 10px; }
     .search-container { max-width: 200px; }
     .search-input { padding: 10px 45px 10px 15px; font-size: 14px; }
-    .logo-image { height: 60px; }
+    .logo-image { height: 60px; width: 137px; aspect-ratio: 160 / 70; } /* Mobilde oran korundu */
 }
 
 @media (max-width: 480px) {
@@ -74,7 +75,7 @@
     .search-input { padding: 8px 40px 8px 12px; font-size: 13px; }
     .nav-icons { gap: 8px; }
     .nav-icon { width: 40px; height: 40px; padding: 8px; font-size: 18px; }
-    .logo-image { height: 50px; }
+    .logo-image { height: 50px; width: 114px; }
     .search-btn { right: 5px; }
     .search-input::placeholder { color: transparent; }
 }
