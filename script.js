@@ -1,4 +1,4 @@
-// script.js - FINAL (ARIA FIX + FADE OUT)
+// script.js - FINAL (ARIA FIX + FADE OUT + PERFORMANCE DEBOUNCE)
 
 // Global değişkenler ve yardımcı fonksiyonlar
 function showNotification(message, type = 'info') {
@@ -55,7 +55,6 @@ function openModal(modal) {
 function closeModal(modal) {
     if (modal) {
         // HATA GİDERME: Modal kapanmadan önce odağı (focus) temizle
-        // Bu sayede "Blocked aria-hidden on an element because its descendant retained focus" hatası engellenir.
         if (document.activeElement && modal.contains(document.activeElement)) {
             document.activeElement.blur();
         }
@@ -173,5 +172,11 @@ function checkLayout() {
     }
 }
 
-window.addEventListener('resize', checkLayout);
+// PERFORMANS: Resize işlemini yavaşlat (Debounce)
+let resizeTimeout;
+window.addEventListener('resize', function() {
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(checkLayout, 200); // 200ms gecikme
+});
+
 document.addEventListener('DOMContentLoaded', checkLayout);
