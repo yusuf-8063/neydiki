@@ -1,228 +1,801 @@
-/* account.css - MOBİL TEPKİSEL TASARIM - FINAL */
+// account.js - GÜNCELLENMİŞ VERSİYON (WebP Otomatik Dönüşüm)
+document.addEventListener('DOMContentLoaded', function() {
+    // --- ELEMENTLER ---
+    const loginForm = document.getElementById('login-account-form');
+    const registerForm = document.getElementById('register-account-form');
+    const forgotPasswordForm = document.getElementById('forgot-password-form');
+    const accountInfo = document.getElementById('account-info');
+    const authLoading = document.getElementById('auth-loading');
+    const accountTitle = document.getElementById('account-title');
+    
+    // Modal Elementleri
+    const discussionModal = document.getElementById('discussion-modal');
+    const discussionImageEl = document.getElementById('discussion-image');
+    const discussionCaptionEl = document.getElementById('discussion-caption');
+    const discussionCommentsList = document.getElementById('comments-list');
+    
+    // Yorum Takibi için Değişken
+    let currentDetailPostId = null;
+    let currentPostData = null; 
 
-/* ===== GENEL PROFİL VE HEADER YAPISI ===== */
-.profile-header { display: flex; align-items: center; gap: 25px; margin-bottom: 35px; padding: 25px; background: linear-gradient(135deg, var(--surface) 0%, rgba(0, 149, 246, 0.05) 100%); border-radius: 20px; border: 1px solid var(--border); box-shadow: var(--shadow); }
-.profile-avatar .user-avatar.large { width: 90px; height: 90px; border-radius: 50%; border: 3px solid var(--primary); box-shadow: 0 8px 25px rgba(0, 149, 246, 0.3); transition: all 0.2s ease; }
-@media (hover: hover) { .profile-avatar .user-avatar.large:hover { transform: scale(1.05); box-shadow: 0 12px 35px rgba(0, 149, 246, 0.4); } }
-.profile-avatar .user-avatar.large:active { transform: scale(0.95); opacity: 0.9; }
+    // --- CSS YAMASI (Yorum Kısaltma Stilleri) ---
+    const fixModalStyle = document.createElement('style');
+    fixModalStyle.textContent = `
+        /* MODAL STİLLERİ */
+        #discussion-modal .discussion-modal-content {
+            display: flex !important; flex-direction: column !important;
+            height: 85vh !important; max-height: 85vh !important;
+            width: 95% !important; max-width: 500px !important;
+            padding: 0 !important; overflow: hidden !important;
+            border-radius: 15px !important;
+        }
+        #discussion-modal .modal-header { flex-shrink: 0 !important; z-index: 2 !important; background: var(--surface) !important; }
+        #discussion-modal .discussion-image-container {
+            flex-shrink: 0 !important; max-height: 30vh !important;
+            background: #000 !important; display: flex !important;
+            align-items: center !important; justify-content: center !important;
+        }
+        #discussion-modal .discussion-content {
+            flex: 1 !important; display: flex !important; flex-direction: column !important;
+            overflow: hidden !important; position: relative !important; min-height: 0 !important;
+        }
+        #discussion-modal .post-caption {
+            flex-shrink: 0 !important; padding: 10px 15px !important;
+            border-bottom: 1px solid var(--border) !important;
+            max-height: 80px !important; overflow-y: auto !important;
+        }
+        #discussion-modal .comments-section {
+            flex-grow: 1 !important; overflow-y: auto !important; padding: 10px !important;
+            scroll-behavior: smooth !important; background: var(--surface) !important; display: block !important;
+        }
+        #discussion-modal .comments-list { padding-bottom: 10px !important; }
+        #discussion-modal .add-comment {
+            flex-shrink: 0 !important; padding: 10px 15px !important;
+            background: var(--surface) !important; border-top: 1px solid var(--border) !important;
+            position: relative !important; z-index: 10 !important; margin-top: auto !important;
+        }
+        /* Profil Resmi Önizleme Stili */
+        #edit-avatar-preview {
+            background-size: cover; background-position: center;
+            background-color: #e1e1e1; color: #999;
+            display: flex; align-items: center; justify-content: center;
+        }
+        /* Şifre Hatası Sallama Efekti */
+        .error-shake { animation: shake 0.4s ease-in-out; }
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 20%, 60% { transform: translateX(-5px); border-color: #ff4757; } 40%, 80% { transform: translateX(5px); } }
 
-.profile-info { flex: 1; }
-.profile-info h2 { font-size: 26px; font-weight: 700; margin-bottom: 8px; color: var(--text); background: linear-gradient(135deg, var(--text) 0%, var(--primary) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-.profile-stats { display: flex; gap: 25px; margin-bottom: 15px; }
+        /* Yorum Kısaltma ve Lazy Load Stilleri */
+        .comment-text.collapsed {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .read-more-btn {
+            background: none;
+            border: none;
+            color: var(--text-light);
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            padding: 0;
+            margin-top: 2px;
+            display: inline-block;
+        }
+        .read-more-btn:hover { text-decoration: underline; color: var(--primary); }
+    `;
+    document.head.appendChild(fixModalStyle);
 
-.stat { 
-    display: flex; flex-direction: column; align-items: center; 
-    padding: 12px 20px; background: var(--surface);
-    border-radius: 12px; border: 1px solid var(--border);
-    transition: background-color 0.1s ease, transform 0.1s ease;
-    min-width: 80px; cursor: pointer;
-}
-@media (hover: hover) { .stat:hover { transform: translateY(-2px); box-shadow: var(--shadow); border-color: var(--primary); } }
-/* Mobilde basınca */
-.stat:active { background-color: var(--touch-overlay); transform: scale(0.96); }
+    // --- GÜVENLİK RESETİ ---
+    function resetUI() {
+        if(loginForm) loginForm.classList.remove('visible-flex');
+        if(registerForm) registerForm.classList.remove('visible-flex');
+        if(forgotPasswordForm) forgotPasswordForm.classList.remove('visible-flex');
+        if(accountInfo) accountInfo.classList.remove('visible-block');
+        if(authLoading) authLoading.style.display = 'flex';
+    }
+    
+    resetUI();
 
-.stat .count { font-size: 18px; font-weight: 800; color: var(--primary); margin-bottom: 4px; }
-.stat .label { font-size: 12px; color: var(--text-light); font-weight: 600; }
+    // --- ELEMENT SEÇİMLERİ ---
+    const addNewPostBtn = document.getElementById('add-new-post-btn');
+    const logoutBtn = document.getElementById('logout-btn');
+    const deleteAccountBtn = document.getElementById('delete-account-btn'); 
+    const loginBtn = document.getElementById('account-login-btn');
+    const registerBtn = document.getElementById('account-register-btn');
+    
+    // Parolamı Unuttum Elementleri
+    const forgotPasswordBtn = document.getElementById('forgot-password-btn');
+    const sendResetBtn = document.getElementById('send-reset-btn');
 
-.profile-tabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 25px; background: var(--surface); border-radius: 12px 12px 0 0; padding: 0 10px; }
-.tab-btn { flex: 1; padding: 16px; background: none; border: none; font-size: 14px; font-weight: 600; color: var(--text-light); cursor: pointer; transition: background-color 0.1s ease; position: relative; border-radius: 8px 8px 0 0; }
-@media (hover: hover) { .tab-btn:hover { color: var(--primary); background: rgba(0, 149, 246, 0.05); } }
-.tab-btn:active { background-color: rgba(0, 149, 246, 0.15); }
+    // --- BAŞLATMA ---
+    initializeBirthdateSelects();
+    setupEventListeners();
+    setupLogoRedirect();
+    setupCommentSystem();
+    setupProfileEditing();
 
-.tab-btn.active { color: var(--primary); font-weight: 700; }
-.tab-btn.active::after { content: ''; position: absolute; bottom: -1px; left: 10%; width: 80%; height: 3px; background: linear-gradient(90deg, var(--primary), #0081d6); border-radius: 2px; }
-.profile-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; background: var(--border); border-radius: 0 0 12px 12px; overflow: hidden; }
+    // --- YARDIMCI FONKSİYONLAR ---
+    function hideLoading() {
+        setTimeout(() => { if(authLoading) authLoading.style.display = 'none'; }, 300);
+    }
+    
+    function timeAgo(date) {
+        const s = Math.floor((new Date() - new Date(date)) / 1000);
+        if (s < 60) return "Az önce";
+        if (s < 3600) return Math.floor(s/60) + "dk";
+        if (s < 86400) return Math.floor(s/3600) + "sa";
+        return Math.floor(s/86400) + "g";
+    }
 
-/* ===== AUTH FORMS ===== */
-.auth-forms { max-width: 1000px; margin: 0 auto; transition: max-width 0.3s ease; min-height: 400px; position: relative; }
-.auth-form { display: none !important; max-width: 450px; margin: 0 auto; background: var(--surface); border-radius: 20px; padding: 35px; box-shadow: var(--shadow-strong); border: 1px solid var(--border); backdrop-filter: blur(10px); opacity: 0; transform: translateY(30px) scale(0.95); }
-.auth-form.visible-flex { display: block !important; animation: slideUp 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards; }
-@keyframes slideUp { from { opacity: 0; transform: translateY(30px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
-.auth-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 300px; color: var(--primary); width: 100%; position: absolute; top: 0; left: 0; z-index: 10; animation: fadeIn 0.3s ease; }
-.auth-loading i { font-size: 40px; margin-bottom: 15px; animation: spin 1s linear infinite; }
-.auth-loading p { color: var(--text-light); font-size: 14px; font-weight: 500; }
-@keyframes spin { 100% { transform: rotate(360deg); } }
-@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    function setupLogoRedirect() {
+        const logo = document.querySelector('.logo');
+        if (logo) {
+            logo.style.cursor = 'pointer';
+            logo.addEventListener('click', function(e) {
+                e.preventDefault();
+                document.querySelectorAll('.main-content').forEach(el => el.style.display = 'none');
+                const homeContent = document.getElementById('home-content');
+                if (homeContent) homeContent.style.display = 'block';
+                document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
+                const homeNav = document.getElementById('home-nav');
+                if (homeNav) homeNav.classList.add('active');
+                window.scrollTo(0, 0);
+            });
+        }
+    }
 
-.auth-switch { text-align: center; margin-top: 25px; padding: 20px; border-top: 1px solid var(--border); background: linear-gradient(135deg, var(--primary-light) 0%, rgba(0, 149, 246, 0.1) 100%); border-radius: 15px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; }
-.switch-auth { color: var(--primary); font-weight: 700; cursor: pointer; padding: 10px 20px; border-radius: 10px; transition: all 0.1s ease; background: var(--surface); border: 2px solid var(--primary); }
-@media (hover: hover) { .switch-auth:hover { background: var(--primary); color: white; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0, 149, 246, 0.4); } }
-.switch-auth:active { background: var(--primary); color: white; transform: scale(0.96); }
+    // --- EVENT LISTENERS ---
+    function setupEventListeners() {
+        document.querySelectorAll('.switch-auth').forEach(btn => { btn.addEventListener('click', handleFormSwitch); });
+        
+        if (loginBtn) loginBtn.addEventListener('click', handleLogin);
+        if (registerBtn) registerBtn.addEventListener('click', handleRegister);
+        
+        if (addNewPostBtn) addNewPostBtn.addEventListener('click', handleAddNewPost);
+        
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', () => {
+                if (confirm('Çıkış yapmak istiyor musunuz?')) {
+                    auth.signOut().then(() => { localStorage.removeItem('currentUser'); window.location.reload(); });
+                }
+            });
+        }
+        
+        if (deleteAccountBtn) {
+            deleteAccountBtn.addEventListener('click', handleDeleteAccount);
+        }
 
-/* ===== HESAP DETAYLARI ===== */
-.account-info { display: none !important; background: var(--surface); border-radius: 24px; padding: 0; box-shadow: var(--shadow-strong); border: 1px solid var(--border); overflow: hidden; width: 100%; }
-.account-info.visible-block { display: block !important; animation: slideUp 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards; }
-.account-header { display: flex; align-items: center; gap: 20px; padding: 15px 25px; position: relative; background: linear-gradient(135deg, var(--primary) 0%, #0077cc 100%); color: white; }
-.account-header .user-avatar.large { width: 65px; height: 65px; border: 2px solid rgba(255,255,255,0.8); box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
-.account-header::before { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" opacity="0.1"><circle cx="20" cy="20" r="3" fill="white"/><circle cx="80" cy="40" r="2" fill="white"/><circle cx="60" cy="80" r="4" fill="white"/></svg>'); }
-.account-details h3 { font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px; text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); }
-.account-details p { color: rgba(255, 255, 255, 0.9); margin-bottom: 2px; display: flex; align-items: center; gap: 8px; font-size: 13px; }
+        if (forgotPasswordBtn) {
+            forgotPasswordBtn.addEventListener('click', function() {
+                if(loginForm) loginForm.classList.remove('visible-flex');
+                if(registerForm) registerForm.classList.remove('visible-flex');
+                if(forgotPasswordForm) forgotPasswordForm.classList.add('visible-flex');
+                if(accountTitle) accountTitle.textContent = 'Şifre Sıfırlama';
+            });
+        }
 
-.account-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--border); margin: 0; padding: 0; }
-.account-stat { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 10px 5px; background: var(--surface); transition: background-color 0.1s ease; cursor: pointer; position: relative; overflow: hidden; }
-.account-stat::before { content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, rgba(0, 149, 246, 0.1), transparent); transition: left 0.6s ease; }
-@media (hover: hover) { .account-stat:hover::before { left: 100%; } .account-stat:hover { background: var(--primary-light); transform: translateY(-2px); } .account-stat:hover .count { animation: pulse 0.6s ease; } }
-.account-stat:active { background-color: var(--touch-overlay); }
-@keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+        if (sendResetBtn) {
+            sendResetBtn.addEventListener('click', handlePasswordReset);
+        }
+        
+        const toggleRegPassBtn = document.getElementById('toggle-register-password');
+        const regPassInput = document.getElementById('register-password');
 
-.account-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 20px; background: var(--surface); }
-.account-btn { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px; border: none; border-radius: 12px; font-size: 13px; font-weight: 700; cursor: pointer; transition: background-color 0.1s ease, transform 0.1s ease; position: relative; overflow: hidden; }
-.account-btn::before { content: ''; position: absolute; top: 50%; left: 50%; width: 0; height: 0; background: rgba(255, 255, 255, 0.2); border-radius: 50%; transition: all 0.3s ease; transform: translate(-50%, -50%); }
-.account-btn:hover::before { width: 300px; height: 300px; }
+        if (toggleRegPassBtn && regPassInput) {
+            toggleRegPassBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                const type = regPassInput.getAttribute('type') === 'password' ? 'text' : 'password';
+                regPassInput.setAttribute('type', type);
+                const icon = this.querySelector('i');
+                if (type === 'text') { icon.className = 'fas fa-eye-slash'; } else { icon.className = 'fas fa-eye'; }
+            });
+        }
 
-.account-btn.primary { background: linear-gradient(135deg, var(--primary) 0%, #0081d6 100%); color: white; box-shadow: 0 4px 15px rgba(0, 149, 246, 0.4); }
-@media (hover: hover) { .account-btn.primary:hover { transform: translateY(-3px); box-shadow: 0 8px 25px rgba(0, 149, 246, 0.6); } }
-.account-btn.primary:active { transform: scale(0.96); }
+        const toggleLoginPassBtn = document.getElementById('toggle-login-password');
+        const loginPassInput = document.getElementById('account-password');
 
-.account-btn.secondary { background: var(--surface); color: var(--text); border: 2px solid var(--border); box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05); }
-@media (hover: hover) { .account-btn.secondary:hover { background: var(--primary-light); border-color: var(--primary); transform: translateY(-3px); box-shadow: 0 6px 20px rgba(0, 149, 246, 0.2); } }
-.account-btn.secondary:active { background-color: var(--touch-overlay); transform: scale(0.96); }
+        if (toggleLoginPassBtn && loginPassInput) {
+            toggleLoginPassBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                const type = loginPassInput.getAttribute('type') === 'password' ? 'text' : 'password';
+                loginPassInput.setAttribute('type', type);
+                const icon = this.querySelector('i');
+                if (type === 'text') { icon.className = 'fas fa-eye-slash'; } else { icon.className = 'fas fa-eye'; }
+            });
+        }
+    }
+    
+    // --- HESAP SİLME FONKSİYONU ---
+    async function handleDeleteAccount() {
+        if (!confirm('HESABINIZI SİLMEK ÜZERESİNİZ!\n\nBu işlem geri alınamaz. Tüm gönderileriniz, yorumlarınız ve beğenileriniz kalıcı olarak silinecektir.\n\nDevam etmek istiyor musunuz?')) return;
+        if (!confirm('Son onay: Hesabınızı ve tüm verilerinizi silmek istediğinize emin misiniz?')) return;
 
-.account-btn.warning { background: transparent; color: #ffa502; border: 2px solid #ffa502; }
-@media (hover: hover) { .account-btn.warning:hover { background: #ffa502; color: white; transform: translateY(-3px); box-shadow: 0 6px 20px rgba(255, 165, 2, 0.4); } }
-.account-btn.warning:active { background: #ffa502; color: white; transform: scale(0.96); }
+        const user = firebase.auth().currentUser;
+        const dbUser = JSON.parse(localStorage.getItem('currentUser'));
+        
+        if (!user || !dbUser) {
+            alert('Oturum hatası. Lütfen sayfayı yenileyip tekrar giriş yapın.');
+            return;
+        }
 
-.account-btn.danger { background: transparent; color: #ff4757; border: 2px solid #ff4757; }
-@media (hover: hover) { .account-btn.danger:hover { background: #ff4757; color: white; transform: translateY(-3px); box-shadow: 0 6px 20px rgba(255, 71, 87, 0.4); } }
-.account-btn.danger:active { background: #ff4757; color: white; transform: scale(0.96); }
+        const deleteBtn = document.getElementById('delete-account-btn');
+        const originalText = deleteBtn.innerHTML;
+        deleteBtn.innerHTML = 'Siliniyor... <i class="fas fa-spinner fa-spin"></i>';
+        deleteBtn.disabled = true;
 
-.edit-profile-btn { padding: 12px 24px; background: transparent; border: 2px solid var(--border); border-radius: 10px; color: var(--text); cursor: pointer; transition: all 0.1s ease; font-weight: 600; }
-@media (hover: hover) { .edit-profile-btn:hover { background: var(--primary-light); border-color: var(--primary); transform: translateY(-2px); } }
-.edit-profile-btn:active { background-color: var(--touch-overlay); transform: scale(0.96); }
+        try {
+            const batch = db.batch();
+            const postsSnapshot = await db.collection('posts').where('uid', '==', user.uid).get();
+            postsSnapshot.forEach(doc => { batch.delete(doc.ref); });
+            await batch.commit();
 
-.form-actions { display: flex; gap: 15px; margin-top: 25px; }
-.cancel-btn { padding: 14px 24px; background: transparent; border: 2px solid var(--border); border-radius: 10px; color: var(--text); cursor: pointer; flex: 1; font-weight: 600; transition: all 0.1s ease; }
-@media (hover: hover) { .cancel-btn:hover { background: var(--primary-light); border-color: var(--primary); transform: translateY(-2px); } }
-.cancel-btn:active { background-color: var(--touch-overlay); transform: scale(0.96); }
+            const allPostsSnapshot = await db.collection('posts').get();
+            const updatePromises = [];
 
-.settings-list { display: flex; flex-direction: column; gap: 10px; }
-.setting-item { display: flex; align-items: center; padding: 18px; border-radius: 15px; transition: background-color 0.1s ease; cursor: pointer; border: 1px solid transparent; }
-@media (hover: hover) { .setting-item:hover { background: var(--primary-light); border-color: var(--primary); } }
-.setting-item:active { background-color: var(--touch-overlay); }
-.setting-item i:first-child { width: 24px; margin-right: 16px; color: var(--primary); font-size: 18px; }
-.setting-item span { flex: 1; font-size: 16px; font-weight: 600; color: var(--text); }
+            allPostsSnapshot.forEach(doc => {
+                const post = doc.data();
+                let isModified = false;
+                let updates = {};
 
-.switch { position: relative; display: inline-block; width: 50px; height: 26px; }
-.switch input { opacity: 0; width: 0; height: 0; }
-.slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--border); transition: .4s; border-radius: 34px; }
-.slider:before { position: absolute; content: ""; height: 20px; width: 20px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2); }
-input:checked + .slider { background: linear-gradient(135deg, var(--primary) 0%, #0081d6 100%); }
-input:checked + .slider:before { transform: translateX(24px); }
+                if (post.likedBy && post.likedBy.includes(user.uid)) {
+                    updates.likedBy = firebase.firestore.FieldValue.arrayRemove(user.uid);
+                    updates.likes = firebase.firestore.FieldValue.increment(-1);
+                    isModified = true;
+                }
 
-.edit-account-form { max-width: 450px; margin: 0 auto; }
-.form-row { display: flex; gap: 15px; }
-.form-row .form-group { flex: 1; }
-.password-toggle { position: relative; display: flex; flex-direction: column; }
-.password-toggle input { padding-right: 45px !important; }
-.password-toggle-btn { position: absolute; right: 5px; bottom: 5px; height: 35px; width: 35px; background: none; border: none; color: var(--text-light); cursor: pointer; z-index: 10; display: flex; align-items: center; justify-content: center; transition: color 0.2s ease; }
-.form-group.password-toggle label + input + .password-toggle-btn { bottom: 2px; }
-.password-toggle-btn:hover { color: var(--primary); }
-.password-toggle-btn i { font-size: 16px; }
+                if (post.comments && post.comments.length > 0) {
+                    const initialLength = post.comments.length;
+                    const newComments = post.comments.filter(c => c.username !== dbUser.username);
+                    if (newComments.length !== initialLength) {
+                        updates.comments = newComments;
+                        isModified = true;
+                    }
+                }
 
-.birthdate-inputs { display: flex; gap: 10px; margin-top: 8px; }
-.birthdate-inputs select, #register-gender { width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px; background-color: var(--surface); color: var(--text); font-size: 14px; cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238e8e8e' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; background-size: 16px; }
-.birthdate-inputs select { flex: 1; }
-.birthdate-inputs select:focus, #register-gender:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px rgba(0, 149, 246, 0.1); }
-.birthdate-inputs select:hover, #register-gender:hover { border-color: var(--primary); }
-#register-gender { margin-top: 8px; }
-.age-warning { display: none; align-items: center; gap: 10px; padding: 12px 16px; background-color: rgba(255, 193, 7, 0.1); border: 1px solid rgba(255, 193, 7, 0.3); border-radius: 8px; margin-bottom: 16px; color: #ffc107; font-size: 14px; font-weight: 500; }
+                if (isModified) {
+                    updatePromises.push(doc.ref.update(updates));
+                }
+            });
 
-.account-posts-section { margin-top: 0; padding: 25px; border-top: 1px solid var(--border); background: var(--surface); }
-.section-title { font-size: 20px; font-weight: 700; color: var(--text); margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
-.section-title::before { content: ''; width: 4px; height: 20px; background: linear-gradient(135deg, var(--primary) 0%, #0081d6 100%); border-radius: 2px; }
-.post-management-actions { display: flex; gap: 15px; margin-bottom: 25px; flex-wrap: wrap; }
-.action-btn { display: flex; align-items: center; gap: 10px; padding: 14px 22px; border: none; border-radius: 12px; font-size: 14px; font-weight: 700; cursor: pointer; transition: all 0.1s ease; position: relative; overflow: hidden; }
-.action-btn::before { content: ''; position: absolute; top: 50%; left: 50%; width: 0; height: 0; background: rgba(255, 255, 255, 0.2); border-radius: 50%; transition: all 0.3s ease; transform: translate(-50%, -50%); }
-.action-btn:hover::before { width: 200px; height: 200px; }
-.action-btn.primary { background: linear-gradient(135deg, var(--primary) 0%, #0081d6 100%); color: white; box-shadow: 0 4px 15px rgba(0, 149, 246, 0.4); }
-@media (hover: hover) { .action-btn.primary:hover { transform: translateY(-3px); box-shadow: 0 8px 25px rgba(0, 149, 246, 0.6); } }
-.action-btn.primary:active { transform: scale(0.96); }
-.action-btn.secondary { background: var(--surface); color: var(--text); border: 2px solid var(--border); box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05); }
-@media (hover: hover) { .action-btn.secondary:hover { background: var(--primary-light); border-color: var(--primary); transform: translateY(-3px); box-shadow: 0 6px 20px rgba(0, 149, 246, 0.2); } }
-.action-btn.secondary:active { background-color: var(--touch-overlay); transform: scale(0.96); }
-.action-btn.danger { background: transparent; color: #ff4757; border: 2px solid #ff4757; }
-@media (hover: hover) { .action-btn.danger:hover { background: #ff4757; color: white; transform: translateY(-3px); box-shadow: 0 6px 20px rgba(255, 71, 87, 0.4); } }
-.action-btn.danger:active { background: #ff4757; color: white; transform: scale(0.96); }
+            await Promise.all(updatePromises);
+            await db.collection('users').doc(user.uid).delete();
+            await user.delete();
 
-.account-posts-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px; margin-top: 20px; }
-.account-posts-grid::-webkit-scrollbar { width: 6px; }
-.account-posts-grid::-webkit-scrollbar-track { background: var(--background); border-radius: 3px; }
-.account-posts-grid::-webkit-scrollbar-thumb { background: var(--primary); border-radius: 3px; }
-.account-posts-grid::-webkit-scrollbar-thumb:hover { background: #0081d6; }
+            alert('Hesabınız başarıyla silindi.');
+            localStorage.removeItem('currentUser');
+            window.location.reload();
 
-.account-post-item { position: relative; aspect-ratio: 1; border-radius: 16px; overflow: hidden; cursor: pointer; background: var(--background); border: 2px solid var(--border); transition: all 0.2s ease; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); }
-@media (hover: hover) { .account-post-item:hover { transform: translateY(-5px); box-shadow: 0 8px 25px rgba(0, 149, 246, 0.3); border-color: var(--primary); } .account-post-item:hover .account-post-image { transform: scale(1.05); } }
-.account-post-item:active { transform: scale(0.96); opacity: 0.8; }
-.account-post-image { width: 100%; height: 100%; background-size: cover; background-position: center; transition: all 0.4s ease; }
-.no-image-bg { background: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; padding: 15px; text-align: center; }
-.account-post-overlay { position: absolute; bottom: 0; left: 0; right: 0; top: auto; height: auto; padding: 20px 10px 10px 10px; background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0) 100%); display: flex; align-items: flex-end; justify-content: center; opacity: 1; z-index: 2; }
-.account-post-stats { display: flex; gap: 15px; color: white; text-shadow: 0 1px 3px rgba(0,0,0,0.5); font-weight: 700; }
-.stat-item { font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 5px; }
-.stat-item i { font-size: 16px; }
-.delete-post-btn-account { position: absolute; top: 8px; right: 8px; background: rgba(255, 71, 87, 0.9); color: white; border: none; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 10; box-shadow: 0 2px 5px rgba(0,0,0,0.2); font-size: 14px; transition: all 0.1s ease; }
-@media (hover: hover) { .delete-post-btn-account:hover { background: #ff4757; transform: scale(1.15); box-shadow: 0 0 12px rgba(255, 71, 87, 0.6); } }
-.delete-post-btn-account:active { transform: scale(0.9); background: #ff4757; }
-.empty-account-posts { grid-column: 1 / -1; text-align: center; padding: 60px 30px; color: var(--text-light); }
-.empty-account-posts i { font-size: 64px; margin-bottom: 20px; opacity: 0.5; color: var(--primary); }
-.empty-account-posts h4 { margin-bottom: 12px; font-weight: 700; font-size: 20px; color: var(--text); }
-.empty-account-posts p { font-size: 15px; line-height: 1.5; }
+        } catch (error) {
+            console.error("Silme hatası:", error);
+            deleteBtn.innerHTML = originalText;
+            deleteBtn.disabled = false;
+            if (error.code === 'auth/requires-recent-login') {
+                alert('Güvenlik gereği hesabınızı silmek için yeniden giriş yapmanız gerekmektedir. Lütfen çıkış yapıp tekrar girdikten sonra deneyin.');
+            } else {
+                alert('Bir hata oluştu: ' + error.message);
+            }
+        }
+    }
 
-@media (max-width: 768px) {
-    .profile-header, .account-header { flex-direction: column; text-align: center; gap: 15px; padding: 20px 15px; }
-    .account-stats { grid-template-columns: repeat(3, 1fr) !important; gap: 2px; }
-    .account-stat { padding: 8px 2px; min-width: auto; }
-    .account-stat i { font-size: 18px; margin-bottom: 4px; }
-    .account-stat strong { font-size: 14px; }
-    .account-stat span { font-size: 10px; white-space: nowrap; }
-    .account-actions { grid-template-columns: 1fr; padding: 20px 15px; }
-    .account-posts-grid { grid-template-columns: repeat(3, 1fr); gap: 4px; }
-    .account-post-item { border-radius: 4px; }
-    .account-post-item:hover, .account-post-item:active, .account-post-item:focus { transform: none !important; box-shadow: none !important; }
-    .account-post-item:hover .account-post-image { transform: none !important; }
-    .stat-item { font-size: 11px; gap: 3px; }
-    .stat-item i { font-size: 12px; }
-    .account-post-overlay { padding: 15px 5px 5px 5px; }
-    .delete-post-btn-account { width: 24px; height: 24px; top: 4px; right: 4px; font-size: 11px; }
-    .post-management-actions { flex-direction: column; } .action-btn { justify-content: center; }
-    .form-row { flex-direction: column; gap: 0; } .auth-form { padding: 25px 20px; max-width: 100%; }
-    .birthdate-inputs { flex-direction: column; gap: 8px; } .birthdate-inputs select { width: 100%; }
-}
-@media (max-width: 480px) {
-    .account-posts-grid { grid-template-columns: repeat(2, 1fr); }
-    .account-post-stats { gap: 10px; flex-direction: column; }
-    .account-post-stats .stat { font-size: 11px; padding: 4px 8px; }
-    .section-title { font-size: 18px; } .account-btn { padding: 10px; font-size: 12px; }
-    .profile-stats { gap: 10px; justify-content: center; } .stat { min-width: 70px; padding: 10px 15px; }
-}
-[data-theme="dark"] .auth-form { background: rgba(30, 30, 30, 0.95); backdrop-filter: blur(20px); }
-[data-theme="dark"] .account-stat:hover { background: rgba(0, 149, 246, 0.15); }
-[data-theme="dark"] .account-post-item { border-color: #333; }
-[data-theme="dark"] .account-post-item:hover { border-color: var(--primary); }
-[data-theme="dark"] .birthdate-inputs select, [data-theme="dark"] #register-gender { background-color: rgba(30, 30, 30, 0.8); border-color: #444; color: var(--text); }
-[data-theme="dark"] .birthdate-inputs select:focus, [data-theme="dark"] #register-gender:focus { border-color: var(--primary); background-color: rgba(30, 30, 30, 0.9); }
-#discussion-modal .discussion-modal-content { display: flex; flex-direction: column; height: 85vh; max-height: 85vh; width: 95%; max-width: 500px; padding: 0; overflow: hidden; border-radius: 15px; }
-#discussion-modal .modal-header { flex-shrink: 0; z-index: 2; background: var(--surface); }
-#discussion-modal .discussion-image-container { flex-shrink: 0; max-height: 30vh; background: #000; display: flex; align-items: center; justify-content: center; }
-#discussion-modal .discussion-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; min-height: 0; }
-#discussion-modal .post-caption { flex-shrink: 0; padding: 10px 15px; border-bottom: 1px solid var(--border); max-height: 80px; overflow-y: auto; }
-#discussion-modal .comments-section { flex-grow: 1; overflow-y: auto; padding: 10px; scroll-behavior: smooth; background: var(--surface); }
-#discussion-modal .comments-list { padding-bottom: 10px; }
-#discussion-modal .add-comment { flex-shrink: 0; padding: 10px 15px; background: var(--surface); border-top: 1px solid var(--border); position: relative; z-index: 10; margin-top: auto; }
-.error-message { background-color: rgba(255, 71, 87, 0.1); border: 1px solid rgba(255, 71, 87, 0.3); color: #ff4757; padding: 12px; border-radius: 8px; margin-bottom: 15px; font-size: 14px; font-weight: 500; text-align: center; display: flex; align-items: center; justify-content: center; gap: 8px; }
-.error-message::before { content: '\f071'; font-family: "Font Awesome 5 Free"; font-weight: 900; }
-.forgot-password-container { margin-top: 12px; text-align: right; margin-bottom: 10px; }
-.forgot-password-link { color: var(--text-light); font-size: 13px; cursor: pointer; font-weight: 600; transition: all 0.3s ease; }
-.forgot-password-link:hover { color: var(--primary); text-decoration: underline; }
-@keyframes shake { 0%, 100% { transform: translateX(0); } 20%, 60% { transform: translateX(-5px); border-color: #ff4757; } 40%, 80% { transform: translateX(5px); } }
-.error-shake { animation: shake 0.4s ease-in-out; }
-.edit-profile-image-section { display: flex; flex-direction: column; align-items: center; gap: 15px; margin-bottom: 25px; padding-bottom: 20px; border-bottom: 1px solid var(--border); }
-.edit-avatar-preview { width: 120px; height: 120px; border-radius: 50%; background-color: var(--background); border: 3px solid var(--primary); background-size: cover; background-position: center; background-repeat: no-repeat; display: flex; align-items: center; justify-content: center; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1); transition: all 0.3s ease; }
-.edit-avatar-preview i { font-size: 50px; color: var(--text-light); opacity: 0.5; }
-.edit-avatar-actions { display: flex; align-items: center; gap: 15px; }
-.upload-btn-label { display: flex; align-items: center; gap: 8px; color: var(--primary); font-weight: 600; font-size: 14px; cursor: pointer; padding: 10px 20px; background: rgba(0, 149, 246, 0.1); border-radius: 12px; transition: all 0.2s ease; }
-@media (hover: hover) { .upload-btn-label:hover { background: rgba(0, 149, 246, 0.2); transform: translateY(-2px); } }
-.upload-btn-label:active { background: rgba(0, 149, 246, 0.2); transform: scale(0.96); }
-.remove-pic-btn { color: #ff4757; background: none; border: none; font-size: 13px; font-weight: 600; cursor: pointer; padding: 8px; transition: color 0.2s ease; }
-@media (hover: hover) { .remove-pic-btn:hover { color: #d63031; text-decoration: underline; } }
-.remove-pic-btn:active { transform: scale(0.95); }
-.user-avatar { background-size: cover; background-position: center; background-repeat: no-repeat; }
+    // --- PROFİL DÜZENLEME SİSTEMİ ---
+    function setupProfileEditing() {
+        const editBtn = document.getElementById('edit-account-btn');
+        const saveBtn = document.getElementById('save-profile-btn');
+        const modal = document.getElementById('edit-profile-modal');
+        const removeBtn = document.getElementById('remove-profile-pic'); 
+        
+        const inputUsername = document.getElementById('edit-username');
+        const inputFullname = document.getElementById('edit-fullname');
+        const inputBirthdate = document.getElementById('edit-birthdate');
+        
+        const uploadInput = document.getElementById('edit-profile-upload');
+        const previewDiv = document.getElementById('edit-avatar-preview');
+        
+        let activeProfilePicData = null;
+
+        const updatePreviewUI = (picData) => {
+            if (!previewDiv) return;
+            if (picData) {
+                previewDiv.style.backgroundImage = `url('${picData}')`;
+                previewDiv.style.backgroundColor = 'transparent';
+                previewDiv.innerHTML = '';
+                if (removeBtn) removeBtn.style.display = 'inline-block';
+            } else {
+                previewDiv.style.backgroundImage = 'none';
+                previewDiv.style.backgroundColor = '#e1e1e1';
+                previewDiv.innerHTML = '<i class="fas fa-user" style="font-size: 50px; color: #999;"></i>';
+                if (removeBtn) removeBtn.style.display = 'none';
+            }
+        };
+
+        if (editBtn) {
+            editBtn.addEventListener('click', function() {
+                const user = JSON.parse(localStorage.getItem('currentUser'));
+                if (!user) return;
+                if(inputUsername) inputUsername.value = user.username || '';
+                if(inputFullname) inputFullname.value = user.fullname || '';
+                if(inputBirthdate) inputBirthdate.value = user.birthdate || '';
+                activeProfilePicData = user.profilePic || null;
+                updatePreviewUI(activeProfilePicData);
+                if (window.openModal && modal) { window.openModal(modal); } else if (modal) { modal.style.display = 'flex'; }
+            });
+        }
+
+        // YENİ EKLENEN FONKSİYON: Profil resmini WebP'ye çevirir
+        function convertToWebP(base64Str) {
+            return new Promise((resolve) => {
+                let img = new Image();
+                img.src = base64Str;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    // Profil resmi için 500x500 yeterli, çok büyük resme gerek yok
+                    const maxWidth = 500; 
+                    const maxHeight = 500;
+                    let width = img.width;
+                    let height = img.height;
+                    
+                    if (width > height) {
+                        if (width > maxWidth) { height *= maxWidth / width; width = maxWidth; }
+                    } else {
+                        if (height > maxHeight) { width *= maxHeight / height; height = maxHeight; }
+                    }
+                    
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    
+                    // WebP formatında çıktı al
+                    resolve(canvas.toDataURL('image/webp', 0.8));
+                };
+                img.onerror = () => resolve(base64Str); // Hata olursa orijinali döndür
+            });
+        }
+
+        if (uploadInput) {
+            uploadInput.addEventListener('change', function(e) {
+                if (e.target.files && e.target.files[0]) {
+                    const reader = new FileReader();
+                    reader.onload = function(ev) {
+                        // DEĞİŞİKLİK: Resmi doğrudan kaydetmek yerine önce WebP'ye çeviriyoruz
+                        convertToWebP(ev.target.result).then(webpData => {
+                            activeProfilePicData = webpData;
+                            updatePreviewUI(activeProfilePicData);
+                        });
+                    }
+                    reader.readAsDataURL(e.target.files[0]);
+                }
+            });
+        }
+
+        if (removeBtn) {
+            removeBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                activeProfilePicData = null;
+                if (uploadInput) uploadInput.value = '';
+                updatePreviewUI(null);
+            });
+        }
+
+        if (saveBtn) {
+            saveBtn.addEventListener('click', function() {
+                const user = JSON.parse(localStorage.getItem('currentUser'));
+                if (!user) return;
+
+                const newUsername = inputUsername.value.trim();
+                const newFullname = inputFullname.value.trim();
+                const newBirthdate = inputBirthdate.value;
+
+                if (!newUsername) { showNotification('Kullanıcı adı boş olamaz!', 'error'); return; }
+
+                const originalBtnText = saveBtn.textContent;
+                saveBtn.textContent = 'Kaydediliyor...';
+                saveBtn.disabled = true;
+
+                let updateData = { username: newUsername, fullname: newFullname, birthdate: newBirthdate, profilePic: activeProfilePicData };
+
+                db.collection("users").doc(user.uid).update(updateData).then(() => {
+                    user.username = newUsername;
+                    user.fullname = newFullname;
+                    user.birthdate = newBirthdate;
+                    user.profilePic = activeProfilePicData;
+                    localStorage.setItem('currentUser', JSON.stringify(user));
+
+                    const displayFullname = document.getElementById('account-fullname');
+                    const displayUsername = document.getElementById('account-username-display');
+                    const accountAvatar = document.getElementById('account-avatar');
+
+                    if (displayFullname) displayFullname.textContent = newFullname || newUsername;
+                    if (displayUsername) displayUsername.textContent = '@' + newUsername;
+                    
+                    if (accountAvatar) {
+                        accountAvatar.style.display = 'flex'; accountAvatar.style.alignItems = 'center'; accountAvatar.style.justifyContent = 'center';
+                        if (user.profilePic) {
+                            accountAvatar.style.background = `url('${user.profilePic}') center/cover no-repeat`;
+                            accountAvatar.innerHTML = '';
+                        } else {
+                            accountAvatar.style.background = '#e1e1e1';
+                            accountAvatar.innerHTML = '<i class="fas fa-user" style="font-size: 30px; color: #999;"></i>';
+                        }
+                    }
+
+                    if (window.closeModal && modal) { window.closeModal(modal); } else if (modal) { modal.style.display = 'none'; }
+                    showNotification('Profil güncellendi!', 'success');
+                }).catch((error) => {
+                    console.error("Güncelleme hatası: ", error);
+                    showNotification('Hata oluştu.', 'error');
+                }).finally(() => {
+                    saveBtn.textContent = originalBtnText;
+                    saveBtn.disabled = false;
+                });
+            });
+        }
+    }
+
+    // --- YENİ YORUM RENDER FONKSİYONU ---
+    function renderAccountCommentsHTML(comments, currentUser) {
+        if (!comments || comments.length === 0) return '<div class="empty-comments-msg" style="text-align:center; padding:20px; color:#8e8e8e;">Henüz yorum yok.</div>';
+        
+        return comments.map(c => {
+            const isMine = currentUser && currentUser.username === c.username;
+            
+            // Kısaltma Mantığı
+            const isLongText = c.text && c.text.length > 120; // 120 karakterden uzunsa kısalt
+            const textClass = isLongText ? 'comment-text collapsed' : 'comment-text';
+            // Başlangıçta "Devamını oku" butonu ekle
+            const readMoreBtn = isLongText ? '<button class="read-more-btn">Devamını oku</button>' : '';
+            
+            const deleteBtnHtml = isMine ? `<button class="comment-delete-btn" data-id="${c.id}" style="position: absolute; top: 3px; right: 3px; border: none; background: none; color: #8e8e8e; cursor: pointer; font-size: 10px;"><i class="fas fa-trash"></i></button>` : '';
+
+            return `
+                <div class="comment-item ${isMine ? 'mine' : ''}">
+                    ${deleteBtnHtml}
+                    <div class="comment-header"><span class="comment-user">${c.username}</span></div>
+                    <div class="${textClass}">${c.text}</div>
+                    ${readMoreBtn}
+                    <div class="comment-footer">
+                        <div class="footer-left"></div>
+                        <div class="footer-right"><span class="comment-time">${timeAgo(c.timestamp)}</span></div>
+                    </div>
+                </div>`;
+        }).join('');
+    }
+
+    // --- YORUM SİSTEMİ (GÜNCELLENMİŞ) ---
+    function setupCommentSystem() {
+        const submitBtn = document.getElementById('submit-comment');
+        const inputElement = document.getElementById('comment-input');
+        
+        const sendComment = () => {
+            const currentInput = document.getElementById('comment-input');
+            const text = currentInput ? currentInput.value.trim() : '';
+            if (!text) return; 
+            if (!currentDetailPostId) return;
+            const user = JSON.parse(localStorage.getItem('currentUser'));
+            if (!user) return alert('Yorum yapmak için giriş yapmalısınız.');
+
+            const newComment = { id: Date.now().toString(), username: user.username, text: text, timestamp: new Date().toISOString(), likes: 0, likedBy: [] };
+
+            if(currentInput) currentInput.value = '';
+            
+            db.collection("posts").doc(currentDetailPostId).update({
+                comments: firebase.firestore.FieldValue.arrayUnion(newComment)
+            }).then(() => {
+                if(currentPostData) {
+                    if(!currentPostData.comments) currentPostData.comments = [];
+                    currentPostData.comments.push(newComment);
+                    
+                    const commentsList = document.getElementById('comments-list');
+                    if (commentsList) {
+                        commentsList.innerHTML = renderAccountCommentsHTML(currentPostData.comments, user);
+                        const scrollContainer = document.querySelector('#discussion-modal .comments-section');
+                        if(scrollContainer) setTimeout(() => { scrollContainer.scrollTop = scrollContainer.scrollHeight; }, 50);
+                    }
+                }
+            }).catch(err => {
+                console.error("Yorum hatası:", err);
+                alert("Yorum gönderilemedi.");
+            });
+        };
+
+        // Event Delegation: Liste üzerindeki tıklamaları yakala
+        const commentsList = document.getElementById('comments-list');
+        if (commentsList) {
+            commentsList.addEventListener('click', function(e) {
+                // Devamını Oku / Daha Az Butonu
+                if (e.target.classList.contains('read-more-btn')) {
+                    e.preventDefault();
+                    const textDiv = e.target.previousElementSibling; // comment-text div'ini bul
+                    
+                    if (textDiv && textDiv.classList.contains('comment-text')) {
+                        if (textDiv.classList.contains('collapsed')) {
+                            // AÇMA: Sınıfı kaldır ve butonu değiştir
+                            textDiv.classList.remove('collapsed');
+                            e.target.textContent = 'Daha az';
+                        } else {
+                            // KAPATMA: Sınıfı ekle ve butonu eski haline getir
+                            textDiv.classList.add('collapsed');
+                            e.target.textContent = 'Devamını oku';
+                        }
+                    }
+                }
+
+                // Silme Butonu
+                const delBtn = e.target.closest('.comment-delete-btn');
+                if (delBtn) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    deleteCommentInAccount(delBtn.dataset.id);
+                }
+            });
+        }
+
+        if(submitBtn) {
+            const newBtn = submitBtn.cloneNode(true);
+            submitBtn.parentNode.replaceChild(newBtn, submitBtn);
+            newBtn.addEventListener('click', sendComment);
+        }
+        if(inputElement) {
+            const newInput = inputElement.cloneNode(true);
+            inputElement.parentNode.replaceChild(newInput, inputElement);
+            newInput.addEventListener('keypress', (e) => { if(e.key === 'Enter') sendComment(); });
+        }
+    }
+
+    function deleteCommentInAccount(commentId) {
+        if(!confirm("Yorumu silmek istiyor musunuz?")) return;
+        if(!currentDetailPostId || !currentPostData) return;
+        
+        const updatedComments = currentPostData.comments.filter(c => c.id !== commentId);
+        const user = JSON.parse(localStorage.getItem('currentUser'));
+
+        db.collection("posts").doc(currentDetailPostId).update({ comments: updatedComments })
+            .then(() => { 
+                currentPostData.comments = updatedComments; 
+                const commentsList = document.getElementById('comments-list');
+                if (commentsList) {
+                    commentsList.innerHTML = renderAccountCommentsHTML(updatedComments, user);
+                }
+            })
+            .catch(err => alert("Silme hatası: " + err.message));
+    }
+
+    if (window.auth) {
+        window.auth.onAuthStateChanged((user) => {
+            if (user) {
+                db.collection("users").doc(user.uid).get().then((doc) => {
+                    const userData = doc.exists ? doc.data() : { username: user.email.split('@')[0], email: user.email, uid: user.uid };
+                    userData.uid = user.uid;
+                    localStorage.setItem('currentUser', JSON.stringify(userData));
+                    showAccountInfo(userData);
+                    hideLoading();
+                }).catch(() => { showLoginForm(); hideLoading(); });
+            } else { localStorage.removeItem('currentUser'); showLoginForm(); hideLoading(); }
+        });
+    } else { showLoginForm(); hideLoading(); }
+
+    function showLoginForm() {
+        if (loginForm) loginForm.classList.add('visible-flex');
+        if (registerForm) registerForm.classList.remove('visible-flex');
+        if (forgotPasswordForm) forgotPasswordForm.classList.remove('visible-flex');
+        if (accountInfo) accountInfo.classList.remove('visible-block');
+        if (accountTitle) accountTitle.textContent = 'Hesabınıza Giriş Yapın';
+    }
+
+    function showAccountInfo(user) {
+        if (loginForm) loginForm.classList.remove('visible-flex');
+        if (registerForm) registerForm.classList.remove('visible-flex');
+        if (forgotPasswordForm) forgotPasswordForm.classList.remove('visible-flex');
+        if (accountInfo) accountInfo.classList.add('visible-block');
+        if (accountTitle) accountTitle.textContent = 'Hesabım';
+
+        const elName = document.getElementById('account-fullname');
+        if(elName) elName.textContent = user.fullname || user.username;
+        const elEmail = document.getElementById('account-email');
+        if(elEmail) elEmail.textContent = user.email;
+        if (user.joinDate) {
+            const date = new Date(user.joinDate);
+            const elDate = document.getElementById('member-since');
+            if(elDate) elDate.textContent = date.toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' });
+        }
+        
+        const avatarEl = document.getElementById('account-avatar');
+        if (avatarEl) {
+            avatarEl.style.display = 'flex';
+            avatarEl.style.alignItems = 'center';
+            avatarEl.style.justifyContent = 'center';
+            
+            if (user.profilePic) {
+                avatarEl.style.background = `url('${user.profilePic}') center/cover no-repeat`;
+                avatarEl.style.border = '2px solid rgba(255,255,255,0.8)';
+                avatarEl.innerHTML = '';
+            } else {
+                avatarEl.style.background = '#e1e1e1';
+                avatarEl.style.border = '2px solid rgba(255,255,255,0.8)';
+                avatarEl.innerHTML = '<i class="fas fa-user" style="font-size: 30px; color: #999;"></i>';
+            }
+        }
+
+        loadAccountPosts(user.username);
+    }
+
+    function loadAccountPosts(username) {
+        const grid = document.getElementById('account-posts-grid');
+        if (!grid) return;
+        grid.innerHTML = '<div class="feed-loading"><div class="feed-spinner"></div><p>Yükleniyor...</p></div>';
+        db.collection("posts").where("username", "==", username).get().then((snapshot) => {
+            grid.innerHTML = ''; 
+            if (snapshot.empty) {
+                grid.innerHTML = '<div class="empty-account-posts"><i class="fas fa-camera"></i><h4>Henüz gönderiniz yok</h4><p>İlk gönderinizi paylaşmak için yukarıdaki butonu kullanın.</p></div>';
+                updateStats(0, 0); return;
+            }
+            let posts = [];
+            snapshot.forEach(doc => { let p = doc.data(); p.id = doc.id; posts.push(p); });
+            posts.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            let totalLikes = 0;
+            posts.forEach(post => { grid.appendChild(createAccountPostElement(post)); totalLikes += (post.likes || 0); });
+            updateStats(posts.length, totalLikes);
+        }).catch(err => { console.error(err); grid.innerHTML = '<p style="text-align:center;">Hata oluştu.</p>'; });
+    }
+
+    function createAccountPostElement(post) {
+        const div = document.createElement('div');
+        div.className = 'account-post-item';
+        let mediaHtml = post.imageType === 'none' || !post.image ? 
+            `<div class="account-post-image no-image-bg"><i class="fas fa-align-left" style="font-size:24px;"></i></div>` :
+            `<div class="account-post-image" style="background-image: url('${post.image}')"></div>`;
+        div.innerHTML = `${mediaHtml}<div class="account-post-overlay"><div class="account-post-stats"><span class="stat-item"><i class="fas fa-heart"></i> ${post.likes||0}</span><span class="stat-item"><i class="fas fa-comment"></i> ${post.comments ? post.comments.length : 0}</span></div></div><button class="delete-post-btn-account" title="Sil"><i class="fas fa-trash"></i></button>`;
+        div.querySelector('.delete-post-btn-account').addEventListener('click', (e) => { e.stopPropagation(); deletePost(post.id); });
+        div.addEventListener('click', () => openPostDetail(post));
+        return div;
+    }
+
+    function openPostDetail(post) {
+        if (!discussionModal) return;
+        currentDetailPostId = post.id; currentPostData = post; 
+        const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+
+        if (post.imageType === 'none' || !post.image) {
+            discussionImageEl.innerHTML = `<div class="no-image-post" style="height:100%; min-height:300px; display:flex; flex-direction:column; align-items:center; justify-content:center; background: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%);"><i class="fas fa-quote-left" style="font-size:48px; color:white; opacity:0.8; margin-bottom:15px;"></i><div style="color:white; font-size:18px; font-weight:600;">Düşünce Paylaşımı</div></div>`;
+        } else { discussionImageEl.innerHTML = `<img src="${post.image}" style="width:100%; height:auto; display:block; border-radius:8px;" alt="Post">`; }
+
+        if (discussionCaptionEl) discussionCaptionEl.innerHTML = `<strong>${post.username}</strong> ${post.caption || ''}`;
+
+        // Lazy/Batch Rendering ile yorumları yükle
+        if (discussionCommentsList) {
+            discussionCommentsList.innerHTML = renderAccountCommentsHTML(post.comments, currentUser);
+            
+            const input = document.getElementById('comment-input'); if(input) input.value = '';
+            
+            setTimeout(() => { 
+                const scrollContainer = document.querySelector('#discussion-modal .comments-section'); 
+                if(scrollContainer) scrollContainer.scrollTop = scrollContainer.scrollHeight; 
+            }, 150);
+        }
+        
+        if (window.openModal) window.openModal(discussionModal); else discussionModal.style.display = 'flex';
+    }
+
+    function deletePost(postId) {
+        if (confirm("Silmek istediğinize emin misiniz?")) {
+            db.collection("posts").doc(postId).delete().then(() => { const user = JSON.parse(localStorage.getItem('currentUser')); if (user) loadAccountPosts(user.username); }).catch(err => alert("Hata: " + err.message));
+        }
+    }
+
+    function updateStats(p, l) { const pe = document.getElementById('account-posts'), le = document.getElementById('account-likes'); if(pe) pe.textContent = p; if(le) le.textContent = l; }
+    
+    // --- FORM SWITCH MANTIĞI ---
+    function handleFormSwitch(e) {
+        const type = e.target.getAttribute('data-form');
+        
+        if(loginForm) loginForm.classList.remove('visible-flex');
+        if(registerForm) registerForm.classList.remove('visible-flex');
+        if(forgotPasswordForm) forgotPasswordForm.classList.remove('visible-flex');
+
+        if (type === 'register') { 
+            if(registerForm) registerForm.classList.add('visible-flex'); 
+            if(accountTitle) accountTitle.textContent = 'Yeni Hesap Oluşturun'; 
+        } else if (type === 'login') {
+            if(loginForm) loginForm.classList.add('visible-flex'); 
+            if(accountTitle) accountTitle.textContent = 'Hesabınıza Giriş Yapın'; 
+        }
+    }
+
+    // --- LOGIN FONKSİYONU ---
+    function handleLogin() {
+        const emailInput = document.getElementById('account-username');
+        const passwordInput = document.getElementById('account-password');
+        const e = emailInput?.value;
+        const p = passwordInput?.value;
+
+        if (!e || !p) {
+            showNotification('Lütfen bilgileri girin.', 'error');
+            return;
+        }
+
+        const btn = document.getElementById('account-login-btn');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = 'Giriş Yapılıyor...';
+        btn.disabled = true;
+
+        auth.signInWithEmailAndPassword(e, p)
+            .then(() => {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            })
+            .catch(err => {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+                
+                let msg = "Giriş başarısız.";
+                if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
+                    msg = "E-posta veya parola hatalı.";
+                } else if (err.code === 'auth/invalid-email') {
+                    msg = "Geçersiz e-posta formatı.";
+                } else if (err.code === 'auth/too-many-requests') {
+                    msg = "Çok fazla deneme yaptınız. Lütfen biraz bekleyin.";
+                }
+
+                showNotification(msg, 'error');
+
+                if(passwordInput) {
+                    passwordInput.classList.add('error-shake');
+                    setTimeout(() => passwordInput.classList.remove('error-shake'), 500);
+                }
+            });
+    }
+
+    // --- ŞİFRE SIFIRLAMA FONKSİYONU ---
+    function handlePasswordReset() {
+        const emailInput = document.getElementById('forgot-email');
+        const email = emailInput ? emailInput.value.trim() : '';
+        
+        if (!email) {
+            showNotification('Lütfen e-posta adresinizi girin.', 'error');
+            return;
+        }
+
+        const btn = document.getElementById('send-reset-btn');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = 'Gönderiliyor...';
+        btn.disabled = true;
+
+        auth.sendPasswordResetEmail(email)
+            .then(() => {
+                showNotification('Sıfırlama bağlantısı e-posta adresinize gönderildi.', 'success');
+                setTimeout(() => {
+                    if(forgotPasswordForm) forgotPasswordForm.classList.remove('visible-flex');
+                    if(loginForm) loginForm.classList.add('visible-flex');
+                    if(accountTitle) accountTitle.textContent = 'Hesabınıza Giriş Yapın';
+                }, 2000);
+            })
+            .catch((error) => {
+                let msg = "Bir hata oluştu.";
+                if (error.code === 'auth/user-not-found') {
+                    msg = "Bu e-posta adresiyle kayıtlı kullanıcı bulunamadı.";
+                } else if (error.code === 'auth/invalid-email') {
+                    msg = "Geçersiz e-posta adresi.";
+                }
+                showNotification(msg, 'error');
+            })
+            .finally(() => {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            });
+    }
+
+    function handleRegister() {
+        const e = document.getElementById('register-email')?.value, p = document.getElementById('register-password')?.value, u = document.getElementById('register-username')?.value;
+        if (!e || !p || !u) return alert('Tüm alanları doldurun.');
+        auth.createUserWithEmailAndPassword(e, p).then((c) => { return db.collection("users").doc(c.user.uid).set({ username: u, email: e, uid: c.user.uid, joinDate: new Date().toISOString() }); }).catch(err => alert('Kayıt Hatası: ' + err.message));
+    }
+    function handleAddNewPost() { const m = document.getElementById('add-post-modal'); if (m && window.openModal) window.openModal(m); else if(m) m.style.display = 'flex'; }
+    function initializeBirthdateSelects() {
+        const d=document.getElementById('register-birthday'); if(!d)return; d.innerHTML='<option value="">Gün</option>'; for(let i=1;i<=31;i++){let o=document.createElement('option');o.value=i;o.text=i;d.add(o);}
+        const m=document.getElementById('register-birthmonth'); if(m){m.innerHTML='<option value="">Ay</option>';['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'].forEach((x,i)=>{let o=document.createElement('option');o.value=i+1;o.text=x;m.add(o);});}
+        const y=document.getElementById('register-birthyear'); if(y){y.innerHTML='<option value="">Yıl</option>';for(let i=new Date().getFullYear();i>=1920;i--){let o=document.createElement('option');o.value=i;o.text=i;y.add(o);}}
+    }
+    window.refreshAccountPosts = function() { const u = JSON.parse(localStorage.getItem('currentUser')); if(u) loadAccountPosts(u.username); };
+});
