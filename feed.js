@@ -1,6 +1,6 @@
-// feed.js - GÜNCELLENMİŞ VERSİYON (WebP Otomatik Dönüşüm)
+// feed.js - GÜNCELLENMİŞ VERSİYON (WebP Otomatik Dönüşüm + Klavye Düzeltmesi)
 document.addEventListener('DOMContentLoaded', function() {
-    console.log("Feed.js: Optimize Edilmiş Sürüm (Lazy Comments + Read More/Less + Auto Scroll + Accessibility + WebP)");
+    console.log("Feed.js: Optimize Edilmiş Sürüm (Lazy Comments + Read More/Less + Auto Scroll + Accessibility + WebP + Keyboard Fix)");
 
     // --- DİNAMİK CSS STİLLERİ (Yorum Kısaltma İçin) ---
     const style = document.createElement('style');
@@ -348,7 +348,7 @@ document.addEventListener('DOMContentLoaded', function() {
             avatarContent = `<i class="fas fa-user" style="color: #999; font-size: 18px;" aria-hidden="true"></i>`;
         }
 
-        // HTML Güncellemesi: aria-label eklemeleri
+        // HTML Güncellemesi: aria-label ve input fixleri
         div.innerHTML = `
             <div class="card-header">
                 <div class="user-avatar" style="${avatarStyle}" aria-label="${post.username} profil resmi">${avatarContent}</div>
@@ -378,7 +378,17 @@ document.addEventListener('DOMContentLoaded', function() {
                     <div class="comments-list" data-loaded="false"></div>
                 </div>
                 <div class="add-comment">
-                    <input type="text" class="comment-input" placeholder="Yorumunuzu yazın..." aria-label="Yorum yaz">
+                    <input 
+                        type="text" 
+                        class="comment-input" 
+                        name="comment_field_${post.id}" 
+                        placeholder="Yorumunuzu yazın..." 
+                        aria-label="Yorum yaz"
+                        autocomplete="off" 
+                        autocorrect="off" 
+                        autocapitalize="off" 
+                        spellcheck="false"
+                    >
                     <button class="submit-comment inline-submit-btn" aria-label="Yorum gönder"><i class="fas fa-paper-plane" aria-hidden="true"></i></button>
                 </div>
             </div>
@@ -424,7 +434,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     discSection.classList.add('expanded'); 
                     openDiscussionIds.add(post.id);
 
-                    // --- YENİ EKLENEN KISIM: AÇILDIĞINDA EN AŞAĞI KAYDIR ---
+                    // AÇILDIĞINDA EN AŞAĞI KAYDIR
                     const scrollContainer = div.querySelector('.comments-container');
                     if(scrollContainer) {
                         setTimeout(() => {
@@ -460,7 +470,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const likeCommentBtn = e.target.closest('.comment-like-btn');
             if(likeCommentBtn) { e.preventDefault(); toggleCommentLike(post.id, likeCommentBtn.dataset.id); }
 
-            // Devamını Oku / Daha Az Butonu (GÜNCELLENDİ)
+            // Devamını Oku / Daha Az Butonu
             if(e.target.classList.contains('read-more-btn')) {
                 e.preventDefault();
                 const container = e.target.previousElementSibling; // .comment-text
@@ -481,7 +491,7 @@ document.addEventListener('DOMContentLoaded', function() {
         return div;
     }
 
-    // --- YENİ YORUM RENDER FONKSİYONU (Aria-label eklendi) ---
+    // --- YENİ YORUM RENDER FONKSİYONU ---
     function renderCommentsHTML(comments, currentUser) {
         if (!comments || comments.length === 0) return '<div style="text-align:center; color:var(--text-light); font-size:13px; padding:20px;">Henüz yorum yok. İlk yorumu sen yap!</div>';
         
