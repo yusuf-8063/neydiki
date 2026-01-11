@@ -427,20 +427,23 @@
                     <div class="comments-list" id="comments-list"></div>
                 </div>
                 <div class="add-comment">
-                    <label for="comment-input" class="visually-hidden" style="display:none;">Yorum yaz</label>
-                    <input 
-                        type="text" 
-                        id="comment-input" 
-                        name="fld_unique_modal_no_autofill" 
-                        placeholder="Yorumunuzu yazın..." 
-                        aria-label="Yorum yazın"
-                        autocomplete="off" 
-                        autocorrect="off" 
-                        autocapitalize="off" 
-                        spellcheck="false"
-                        enterkeyhint="send"
-                    >
-                    <button id="submit-comment" aria-label="Yorum gönder"><i class="fas fa-paper-plane" aria-hidden="true"></i></button>
+                    <form action="javascript:void(0);" autocomplete="off" style="width:100%; display:flex; align-items:center; margin:0; padding:0; border:none; background:transparent;">
+                        <input 
+                            type="text" 
+                            id="comment-input" 
+                            name="fld_modal_unique_no_autofill_hack" 
+                            placeholder="Yorumunuzu yazın..." 
+                            aria-label="Yorum yazın"
+                            autocomplete="off" 
+                            autocorrect="off" 
+                            autocapitalize="off" 
+                            spellcheck="false"
+                            enterkeyhint="send"
+                            readonly
+                            onfocus="this.removeAttribute('readonly');"
+                        >
+                        <button id="submit-comment" type="button" aria-label="Yorum gönder"><i class="fas fa-paper-plane" aria-hidden="true"></i></button>
+                    </form>
                 </div>
             </div>
         </div>
