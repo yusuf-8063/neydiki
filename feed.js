@@ -1,6 +1,31 @@
-// feed.js - PERFORMANCE + ANIMATIONS + FULL ZOOM RESTORED
+// feed.js - LAZY LOAD + READ MORE UPDATE
 document.addEventListener('DOMContentLoaded', function() {
-    console.log("Feed.js: Sistem Başlatıldı - Zoom Sistemi Onarıldı");
+    console.log("Feed.js: Optimize Edilmiş Sürüm (Lazy Comments + Read More)");
+
+    // --- DİNAMİK CSS STİLLERİ (Yorum Kısaltma İçin) ---
+    const style = document.createElement('style');
+    style.textContent = `
+        .comment-text.collapsed {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .read-more-btn {
+            background: none;
+            border: none;
+            color: var(--text-light);
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            padding: 0;
+            margin-top: 2px;
+            display: inline-block;
+        }
+        .read-more-btn:hover { text-decoration: underline; color: var(--primary); }
+    `;
+    document.head.appendChild(style);
 
     const imageFeed = document.getElementById('image-feed');
     const sharePostBtn = document.getElementById('share-post-btn');
@@ -18,8 +43,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     let selectedImage = null;
     let openDiscussionIds = new Set(); 
-    let justCommentedPostId = null;
-
+    
     let activeFilters = {
         sort: 'newest',
         mediaType: [],
@@ -56,7 +80,6 @@ document.addEventListener('DOMContentLoaded', function() {
     function initFeed() {
         if (!imageFeed || !window.db) return;
 
-        // İlk açılış animasyonu
         imageFeed.innerHTML = `
             <div class="feed-loading" id="initial-loader">
                 <div class="feed-spinner"></div>
@@ -79,7 +102,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const options = {
             root: null,
-            rootMargin: '200px',
+            rootMargin: '400px',
             threshold: 0.1
         };
 
@@ -151,7 +174,7 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error("Veri hatası:", error);
             const initialLoader = document.getElementById('initial-loader');
             if (initialLoader) initialLoader.remove();
-            showNotification('Veriler yüklenemedi.', 'error');
+            if (typeof showNotification === 'function') showNotification('Veriler yüklenemedi.', 'error');
         } finally {
             isFetching = false;
             if (sentinel) sentinel.style.opacity = '0';
@@ -163,9 +186,11 @@ document.addEventListener('DOMContentLoaded', function() {
         const sentinel = document.getElementById('feed-sentinel');
         const fragment = document.createDocumentFragment();
 
-        postsToRender.forEach(post => {
+        postsToRender.forEach((post, index) => {
             if (!checkPostFilter(post)) return;
-            const el = createPostElement(post, currentUser);
+            // İlk 2 post hemen yüklensin (eager), diğerleri lazy
+            const isPriority = clearContainer && index < 2; 
+            const el = createPostElement(post, currentUser, isPriority);
             fragment.appendChild(el);
         });
 
@@ -270,15 +295,16 @@ document.addEventListener('DOMContentLoaded', function() {
         const currentUser = JSON.parse(localStorage.getItem('currentUser'));
         const fragment = document.createDocumentFragment();
         
-        processed.forEach(post => {
-            fragment.appendChild(createPostElement(post, currentUser));
+        processed.forEach((post, index) => {
+            const isPriority = index < 2;
+            fragment.appendChild(createPostElement(post, currentUser, isPriority));
         });
 
         imageFeed.appendChild(fragment);
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    function createPostElement(post, currentUser) {
+    function createPostElement(post, currentUser, isPriority = false) {
         const div = document.createElement('div');
         div.className = 'image-card';
         div.setAttribute('data-post-id', post.id);
@@ -291,6 +317,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const likeIconClass = isLikedByMe ? 'fas' : 'far'; 
         const safeLikes = Math.max(0, post.likes || 0);
 
+        // Görsel Yükleme Stratejisi
         let contentHtml = '';
         if (post.imageType === 'none' || !post.image) {
             contentHtml = `
@@ -302,7 +329,7 @@ document.addEventListener('DOMContentLoaded', function() {
             contentHtml = `
                 <div class="post-media-container">
                     <div class="media-blur-bg" style="background-image: url('${post.image}')"></div>
-                    <img src="${post.image}" class="card-image" loading="lazy" alt="Gönderi">
+                    <img src="${post.image}" class="card-image" loading="${isPriority ? 'eager' : 'lazy'}" decoding="async" alt="Gönderi">
                 </div>
             `;
         }
@@ -345,9 +372,7 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
             <div class="discussion-section" id="discussion-${post.id}">
                 <div class="comments-container">
-                    <div class="comments-list">
-                        ${renderCommentsHTML(post.comments, currentUser)}
-                    </div>
+                    <div class="comments-list" data-loaded="false"></div>
                 </div>
                 <div class="add-comment">
                     <input type="text" class="comment-input" placeholder="Yorumunuzu yazın...">
@@ -362,53 +387,104 @@ document.addEventListener('DOMContentLoaded', function() {
                 e.stopPropagation(); e.preventDefault(); openFullscreenImage(post.image);
             });
         }
+        
         const delBtn = div.querySelector('.delete-post-btn');
         if(delBtn) delBtn.addEventListener('click', (e) => { e.preventDefault(); deletePost(post.id); });
+        
         const likeBtn = div.querySelector('.like-post-btn');
         if(likeBtn) likeBtn.addEventListener('click', (e) => { e.preventDefault(); togglePostLike(post.id); });
+        
         const discBtn = div.querySelector('.toggle-comments-btn');
         const discSection = div.querySelector('.discussion-section');
         const commentInput = div.querySelector('.comment-input');
-        if(openDiscussionIds.has(post.id)) discSection.classList.add('expanded');
+        const commentsListEl = div.querySelector('.comments-list');
+
+        // Eğer bir post önceden açıksa (refresh vb.) render et ve aç
+        if(openDiscussionIds.has(post.id)) {
+            commentsListEl.innerHTML = renderCommentsHTML(post.comments, currentUser);
+            commentsListEl.setAttribute('data-loaded', 'true');
+            discSection.classList.add('expanded');
+        }
+
         if(discBtn) {
             discBtn.addEventListener('click', (e) => {
                 e.preventDefault();
                 const isExpanded = discSection.classList.contains('expanded');
+                
                 if(!isExpanded) {
-                    discSection.classList.add('expanded'); openDiscussionIds.add(post.id);
+                    // LAZY RENDERING: Sadece açılınca ve eğer daha önce yüklenmemişse render et
+                    if (commentsListEl.getAttribute('data-loaded') === 'false') {
+                        commentsListEl.innerHTML = renderCommentsHTML(post.comments, currentUser);
+                        commentsListEl.setAttribute('data-loaded', 'true');
+                    }
+                    
+                    discSection.classList.add('expanded'); 
+                    openDiscussionIds.add(post.id);
                     setTimeout(() => { if(commentInput) commentInput.focus({ preventScroll: true }); }, 300);
                 } else {
-                    discSection.classList.remove('expanded'); openDiscussionIds.delete(post.id);
+                    discSection.classList.remove('expanded'); 
+                    openDiscussionIds.delete(post.id);
                 }
             });
         }
+        
         const sendBtn = div.querySelector('.inline-submit-btn');
-        const handleSend = () => { sendComment(post.id, commentInput.value); commentInput.value = ''; };
+        const handleSend = () => { 
+            sendComment(post.id, commentInput.value); 
+            commentInput.value = ''; 
+            commentsListEl.setAttribute('data-loaded', 'true');
+        };
+        
         if(sendBtn) sendBtn.addEventListener('click', (e) => { e.preventDefault(); handleSend(); });
         if(commentInput) commentInput.addEventListener('keypress', (e) => { if(e.key === 'Enter') { e.preventDefault(); handleSend(); } });
 
-        const cList = div.querySelector('.comments-list');
-        cList.addEventListener('click', (e) => {
+        // Event Delegation (Yorum içi tıklamalar: silme, beğenme, devamını oku)
+        commentsListEl.addEventListener('click', (e) => {
+            // Silme Butonu
             const delCommentBtn = e.target.closest('.comment-delete-btn');
             if(delCommentBtn) { e.preventDefault(); deleteComment(post.id, delCommentBtn.dataset.id); }
+            
+            // Beğeni Butonu
             const likeCommentBtn = e.target.closest('.comment-like-btn');
             if(likeCommentBtn) { e.preventDefault(); toggleCommentLike(post.id, likeCommentBtn.dataset.id); }
+
+            // Devamını Oku Butonu
+            if(e.target.classList.contains('read-more-btn')) {
+                e.preventDefault();
+                const container = e.target.previousElementSibling; // .comment-text
+                if(container && container.classList.contains('comment-text')) {
+                    container.classList.remove('collapsed'); // Kısıtlamayı kaldır
+                    e.target.style.display = 'none'; // Butonu gizle
+                }
+            }
         });
+
         return div;
     }
 
+    // --- YENİ YORUM RENDER FONKSİYONU (Kısaltma Mantığı) ---
     function renderCommentsHTML(comments, currentUser) {
         if (!comments || comments.length === 0) return '<div style="text-align:center; color:var(--text-light); font-size:13px; padding:20px;">Henüz yorum yok. İlk yorumu sen yap!</div>';
+        
         return comments.map(c => {
             const isMyComment = currentUser && currentUser.username === c.username;
             const isLiked = c.likedBy && currentUser && c.likedBy.includes(currentUser.uid);
             const likeClass = isLiked ? 'active' : '';
             const likeIcon = isLiked ? 'fas' : 'far';
             const likeCount = c.likes || 0;
+            
+            // Metin uzunluk kontrolü
+            const isLongText = c.text && c.text.length > 120; // 120 karakter üstü uzun sayılır
+            const textClass = isLongText ? 'comment-text collapsed' : 'comment-text';
+            const readMoreBtn = isLongText ? '<button class="read-more-btn">Devamını oku</button>' : '';
+
             return `
                 <div class="comment-item ${isMyComment ? 'mine' : ''}">
                     <div class="comment-header"><span class="comment-user">${c.username}</span></div>
-                    <div class="comment-text">${c.text}</div>
+                    
+                    <div class="${textClass}">${c.text}</div>
+                    ${readMoreBtn}
+                    
                     <div class="comment-footer">
                         <div class="footer-left"><button class="comment-like-btn ${likeClass}" data-id="${c.id}"><i class="${likeIcon} fa-heart"></i> ${likeCount > 0 ? likeCount : ''}</button></div>
                         <div class="footer-right">${isMyComment ? `<button class="comment-delete-btn" data-id="${c.id}"><i class="fas fa-trash"></i></button>` : ''}<span class="comment-time">${timeAgo(c.timestamp)}</span></div>
@@ -448,6 +524,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if(isLiked) { if (comment.likes > 0) comment.likes--; comment.likedBy = comment.likedBy.filter(id => id !== user.uid); }
         else { comment.likes++; comment.likedBy.push(user.uid); }
         updatedComments[commentIndex] = comment;
+        
         const card = document.querySelector(`.image-card[data-post-id="${postId}"]`);
         if(card) {
              const cBtn = card.querySelector(`.comment-like-btn[data-id="${commentId}"]`);
@@ -457,7 +534,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function sendComment(postId, text) {
-        if (!text.trim()) { showNotification('Boş yorum gönderilemez.', 'error'); return; }
+        if (!text.trim()) { if(typeof showNotification==='function') showNotification('Boş yorum gönderilemez.', 'error'); return; }
         const user = getCurrentUserOrAlert(); if(!user) return;
         const newComment = { id: Date.now().toString(), username: user.username, text: text, timestamp: new Date().toISOString(), likes: 0, likedBy: [] };
         const post = rawPosts.find(p => p.id === postId);
@@ -466,12 +543,21 @@ document.addEventListener('DOMContentLoaded', function() {
             const card = document.querySelector(`.image-card[data-post-id="${postId}"]`);
             if(card) {
                 const list = card.querySelector('.comments-list'); const btn = card.querySelector('.toggle-comments-btn');
+                
+                // Yorum gönderilince listeyi güncelle
                 if(list) list.innerHTML = renderCommentsHTML(post.comments, user);
                 if(btn) btn.innerHTML = `<i class="far fa-comments"></i> Tartışma (${post.comments.length})`;
+
+                const scrollContainer = card.querySelector('.comments-container');
+                if(scrollContainer) {
+                    setTimeout(() => {
+                        scrollContainer.scrollTop = scrollContainer.scrollHeight;
+                    }, 50); 
+                }
             }
         }
         window.db.collection("posts").doc(postId).update({ comments: firebase.firestore.FieldValue.arrayUnion(newComment) })
-            .then(() => showNotification('Yorum gönderildi', 'success'));
+            .then(() => { if(typeof showNotification==='function') showNotification('Yorum gönderildi', 'success'); });
     }
 
     function deleteComment(postId, cId) {
@@ -487,7 +573,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function deletePost(postId) {
         if(confirm("Gönderiyi silmek istiyor musunuz?")) {
             window.db.collection("posts").doc(postId).delete().then(() => {
-                showNotification('Gönderi silindi', 'success');
+                if(typeof showNotification==='function') showNotification('Gönderi silindi', 'success');
                 const card = document.querySelector(`.image-card[data-post-id="${postId}"]`);
                 if(card) card.remove();
                 rawPosts = rawPosts.filter(p => p.id !== postId);
@@ -505,7 +591,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function getCurrentUserOrAlert() {
         const user = JSON.parse(localStorage.getItem('currentUser'));
-        if(!user) { showNotification('Lütfen giriş yapın.', 'error'); return null; }
+        if(!user) { if(typeof showNotification==='function') showNotification('Lütfen giriş yapın.', 'error'); return null; }
         return user;
     }
 
@@ -513,20 +599,21 @@ document.addEventListener('DOMContentLoaded', function() {
         sharePostBtn.addEventListener('click', () => {
             const caption = document.getElementById('post-caption').value;
             const user = JSON.parse(localStorage.getItem('currentUser'));
-            if (!user) { showNotification('Giriş yapmalısınız!', 'error'); return; }
-            if (!selectedImage && !caption) { showNotification('Görsel veya açıklama ekleyin.', 'error'); return; }
+            if (!user) { if(typeof showNotification==='function') showNotification('Giriş yapmalısınız!', 'error'); return; }
+            if (!selectedImage && !caption) { if(typeof showNotification==='function') showNotification('Görsel veya açıklama ekleyin.', 'error'); return; }
             const newPost = { username: user.username, userId: user.uid, caption: caption, image: selectedImage, imageType: selectedImage ? 'uploaded' : 'none', timestamp: new Date().toISOString(), likes: 0, likedBy: [], comments: [], userProfilePic: user.profilePic || null };
             sharePostBtn.textContent = 'Paylaşılıyor...'; sharePostBtn.disabled = true;
             window.db.collection("posts").add(newPost).then((docRef) => {
                 newPost.id = docRef.id; rawPosts.unshift(newPost);
-                const card = createPostElement(newPost, user);
+                // Yeni post her zaman priority ile eklenir
+                const card = createPostElement(newPost, user, true);
                 if(imageFeed.firstChild) imageFeed.insertBefore(card, imageFeed.firstChild); else imageFeed.appendChild(card);
                 if(addPostModal) { addPostModal.style.display = 'none'; document.body.style.overflow = 'auto'; }
                 if (typeof window.switchTab === 'function') window.switchTab('home');
                 document.getElementById('post-caption').value = ''; selectedImage = null;
                 if(imagePreview) imagePreview.style.display = 'none';
                 sharePostBtn.textContent = 'Paylaş'; sharePostBtn.disabled = false;
-                showNotification('Paylaşıldı!', 'success');
+                if(typeof showNotification==='function') showNotification('Paylaşıldı!', 'success');
             }).catch((error) => { console.error("Paylaşım hatası:", error); sharePostBtn.textContent = 'Paylaş'; sharePostBtn.disabled = false; });
         });
     }
@@ -548,22 +635,13 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // --- GELİŞMİŞ TAM EKRAN GÖRSEL & ZOOM SİSTEMİ (ONARILDI) ---
+    // --- GELİŞMİŞ TAM EKRAN GÖRSEL & ZOOM SİSTEMİ ---
     const fullscreenViewer = document.getElementById('fullscreen-viewer');
     const fullscreenImg = document.getElementById('fullscreen-image');
     const closeFullscreenBtn = document.getElementById('close-fullscreen-btn');
     const fullscreenContainer = document.getElementById('fullscreen-img-container');
 
-    // Zoom Durum Değişkenleri
-    let state = {
-        scale: 1,
-        panning: false,
-        pointX: 0,
-        pointY: 0,
-        startX: 0,
-        startY: 0
-    };
-
+    let state = { scale: 1, panning: false, pointX: 0, pointY: 0, startX: 0, startY: 0 };
     const minScale = 1;
     const maxScale = 5;
 
@@ -571,7 +649,6 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!fullscreenViewer || !fullscreenImg) return;
         fullscreenImg.src = src;
         fullscreenViewer.style.setProperty('--fullscreen-bg', `url('${src}')`);
-        
         fullscreenViewer.classList.add('active');
         document.body.style.overflow = 'hidden'; 
         resetZoom();
@@ -598,12 +675,8 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Event Listeners (Kapatma)
     if (closeFullscreenBtn) {
-        closeFullscreenBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            closeFullscreenImage();
-        });
+        closeFullscreenBtn.addEventListener('click', (e) => { e.stopPropagation(); closeFullscreenImage(); });
     }
 
     if (fullscreenViewer) {
@@ -619,73 +692,41 @@ document.addEventListener('DOMContentLoaded', function() {
     if (fullscreenContainer && fullscreenImg) {
         let lastTap = 0;
         let isPinching = false;
-
-        // --- MOBİL DOKUNMATİK OLAYLARI ---
-        fullscreenContainer.addEventListener('touchend', function (e) {
-            const currentTime = new Date().getTime();
-            const tapLength = currentTime - lastTap;
-            
-            if (!isPinching && tapLength < 300 && tapLength > 0 && e.touches.length === 0) {
-                e.preventDefault();
-                fullscreenImg.style.transition = 'transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
-                if (state.scale > 1) {
-                    resetZoom();
-                } else {
-                    state.scale = 2;
-                    state.pointX = 0;
-                    state.pointY = 0;
-                    updateTransform();
-                }
-            }
-
-            if (e.touches.length === 0) {
-                state.panning = false;
-                fullscreenImg.style.transition = 'transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
-                if (state.scale < 1) {
-                    resetZoom();
-                }
-                if (isPinching) {
-                    isPinching = false;
-                    return; 
-                }
-            }
-            lastTap = currentTime;
-        });
-
-        // --- MASAÜSTÜ ÇİFT TIKLAMA ---
-        fullscreenContainer.addEventListener('dblclick', (e) => {
-            fullscreenImg.style.transition = 'transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
-            if (state.scale > 1) {
-                resetZoom();
-            } else {
-                state.scale = 2;
-                updateTransform();
-            }
-        });
-
         let initialPinchDistance = 0;
         let initialScale = 1;
         let initialPinchCenter = { x: 0, y: 0 };
         let initialPoint = { x: 0, y: 0 };
 
+        fullscreenContainer.addEventListener('touchend', function (e) {
+            const currentTime = new Date().getTime();
+            const tapLength = currentTime - lastTap;
+            if (!isPinching && tapLength < 300 && tapLength > 0 && e.touches.length === 0) {
+                e.preventDefault();
+                fullscreenImg.style.transition = 'transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+                if (state.scale > 1) { resetZoom(); } else { state.scale = 2; state.pointX = 0; state.pointY = 0; updateTransform(); }
+            }
+            if (e.touches.length === 0) {
+                state.panning = false;
+                fullscreenImg.style.transition = 'transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+                if (state.scale < 1) { resetZoom(); }
+                if (isPinching) { isPinching = false; return; }
+            }
+            lastTap = currentTime;
+        });
+
+        fullscreenContainer.addEventListener('dblclick', (e) => {
+            fullscreenImg.style.transition = 'transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+            if (state.scale > 1) { resetZoom(); } else { state.scale = 2; updateTransform(); }
+        });
+
         fullscreenContainer.addEventListener('touchstart', (e) => {
             fullscreenImg.style.transition = 'none';
-
             if (e.touches.length === 2) {
-                isPinching = true;
-                state.panning = false;
-                initialPinchDistance = Math.hypot(
-                    e.touches[0].pageX - e.touches[1].pageX,
-                    e.touches[0].pageY - e.touches[1].pageY
-                );
+                isPinching = true; state.panning = false;
+                initialPinchDistance = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
                 initialScale = state.scale;
-                
-                initialPinchCenter = {
-                    x: (e.touches[0].pageX + e.touches[1].pageX) / 2,
-                    y: (e.touches[0].pageY + e.touches[1].pageY) / 2
-                };
+                initialPinchCenter = { x: (e.touches[0].pageX + e.touches[1].pageX) / 2, y: (e.touches[0].pageY + e.touches[1].pageY) / 2 };
                 initialPoint = { x: state.pointX, y: state.pointY };
-                
             } else if (e.touches.length === 1) {
                 state.panning = true;
                 state.startX = e.touches[0].pageX - state.pointX;
@@ -695,30 +736,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
         fullscreenContainer.addEventListener('touchmove', (e) => {
             e.preventDefault();
-
             if (e.touches.length === 2) {
-                const currentDistance = Math.hypot(
-                    e.touches[0].pageX - e.touches[1].pageX,
-                    e.touches[0].pageY - e.touches[1].pageY
-                );
-                
-                const currentCenter = {
-                    x: (e.touches[0].pageX + e.touches[1].pageX) / 2,
-                    y: (e.touches[0].pageY + e.touches[1].pageY) / 2
-                };
-
+                const currentDistance = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
+                const currentCenter = { x: (e.touches[0].pageX + e.touches[1].pageX) / 2, y: (e.touches[0].pageY + e.touches[1].pageY) / 2 };
                 if (initialPinchDistance > 0) {
                     const diff = currentDistance / initialPinchDistance;
                     let newScale = initialScale * diff;
                     newScale = Math.min(Math.max(minScale, newScale), maxScale);
                     state.scale = newScale;
-                    
                     const dx = currentCenter.x - initialPinchCenter.x;
                     const dy = currentCenter.y - initialPinchCenter.y;
-                    
                     state.pointX = initialPoint.x + dx;
                     state.pointY = initialPoint.y + dy;
-
                     updateTransform();
                 }
             } else if (e.touches.length === 1 && state.panning && state.scale > 1) {
@@ -728,56 +757,35 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
 
-        // --- MASAÜSTÜ MOUSE TEKERLEĞİ İLE ZOOM ---
         fullscreenContainer.addEventListener('wheel', (e) => {
-            e.preventDefault();
-            fullscreenImg.style.transition = 'none';
-
-            const zoomFactor = 0.1;
-            const direction = e.deltaY < 0 ? 1 : -1;
+            e.preventDefault(); fullscreenImg.style.transition = 'none';
+            const zoomFactor = 0.1; const direction = e.deltaY < 0 ? 1 : -1;
             let newScale = state.scale + (direction * zoomFactor * state.scale);
-
             newScale = Math.min(Math.max(minScale, newScale), maxScale);
-
-            if (newScale <= 1) {
-                resetZoom();
-            } else {
-                state.scale = newScale;
-                updateTransform();
-            }
+            if (newScale <= 1) { resetZoom(); } else { state.scale = newScale; updateTransform(); }
         }, { passive: false });
 
-        // --- MASAÜSTÜ SÜRÜKLEME ---
         let isMouseDown = false;
-
         fullscreenContainer.addEventListener('mousedown', (e) => {
             if (state.scale > 1) {
-                e.preventDefault();
-                fullscreenImg.style.transition = 'none';
-                isMouseDown = true;
-                state.startX = e.clientX - state.pointX;
-                state.startY = e.clientY - state.pointY;
+                e.preventDefault(); fullscreenImg.style.transition = 'none';
+                isMouseDown = true; state.startX = e.clientX - state.pointX; state.startY = e.clientY - state.pointY;
                 fullscreenContainer.style.cursor = 'grabbing';
             }
         });
 
         fullscreenContainer.addEventListener('mousemove', (e) => {
             if (isMouseDown && state.scale > 1) {
-                e.preventDefault();
-                state.pointX = e.clientX - state.startX;
-                state.pointY = e.clientY - state.startY;
-                updateTransform();
+                e.preventDefault(); state.pointX = e.clientX - state.startX; state.pointY = e.clientY - state.startY; updateTransform();
             }
         });
 
         const stopDrag = () => {
             if (isMouseDown) {
-                isMouseDown = false;
-                fullscreenContainer.style.cursor = 'zoom-out'; // Zoomlu ise zoom-out göster
+                isMouseDown = false; fullscreenContainer.style.cursor = 'zoom-out';
                 fullscreenImg.style.transition = 'transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
             }
         };
-
         fullscreenContainer.addEventListener('mouseup', stopDrag);
         fullscreenContainer.addEventListener('mouseleave', stopDrag);
     }
