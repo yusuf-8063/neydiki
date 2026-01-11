@@ -1,6 +1,6 @@
-// feed.js - GÜNCELLENMİŞ VERSİYON (Erişilebilirlik + Performans)
+// feed.js - GÜNCELLENMİŞ VERSİYON (WebP Otomatik Dönüşüm)
 document.addEventListener('DOMContentLoaded', function() {
-    console.log("Feed.js: Optimize Edilmiş Sürüm (Lazy Comments + Read More/Less + Auto Scroll + Accessibility)");
+    console.log("Feed.js: Optimize Edilmiş Sürüm (Lazy Comments + Read More/Less + Auto Scroll + Accessibility + WebP)");
 
     // --- DİNAMİK CSS STİLLERİ (Yorum Kısaltma İçin) ---
     const style = document.createElement('style');
@@ -52,6 +52,7 @@ document.addEventListener('DOMContentLoaded', function() {
         search: ''
     };
 
+    // --- RESİM SIKIŞTIRMA VE WEBP DÖNÜŞTÜRME ---
     function compressImage(base64Str, maxWidth = 1200, maxHeight = 1200) {
         return new Promise((resolve) => {
             let img = new Image();
@@ -70,7 +71,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 const ctx = canvas.getContext('2d');
                 ctx.imageSmoothingEnabled = true;
                 ctx.drawImage(img, 0, 0, width, height);
-                resolve(canvas.toDataURL('image/jpeg', 0.8)); 
+                // GÜNCELLEME: Çıktı formatı WebP olarak ayarlandı
+                resolve(canvas.toDataURL('image/webp', 0.8)); 
             };
             img.onerror = () => resolve(base64Str);
         });
