@@ -12,7 +12,14 @@
 }
 
 .logo { display: flex; align-items: center; height: 40px; }
-.logo-image { height: 70px; width: auto; object-fit: contain; }
+
+/* PERFORMANS: Aspect-ratio ile yer ayırma (CLS düzeltmesi) */
+.logo-image { 
+    height: 70px; 
+    width: auto; 
+    object-fit: contain; 
+    aspect-ratio: 120 / 40; /* Tarayıcının resmi indirmeden yerini ayırmasını sağlar */
+}
 
 .search-container { flex: 1; max-width: 500px; position: relative; }
 
