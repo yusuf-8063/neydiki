@@ -39,24 +39,25 @@
             <img src="img/logo_neydiki%20.webp" alt="NeydiKi Logo" class="logo-image">
         </div>
         
-        <div class="search-container">
+        <form class="search-container" action="javascript:void(0);" autocomplete="off">
             <label for="main-search-input" class="visually-hidden" style="display:none;">Arama</label>
             <input 
-    type="search" 
-    name="q_search_neydiki" 
-    id="main-search-input" 
-    class="search-input" 
-    placeholder="Gönderi, kullanıcı veya etiket ara..." 
-    aria-label="Site içi arama"
-    autocomplete="off" 
-    autocapitalize="off" 
-    spellcheck="false"
->
+                type="search" 
+                name="q_search_neydiki_random" 
+                id="main-search-input" 
+                class="search-input" 
+                placeholder="Gönderi, kullanıcı veya etiket ara..." 
+                aria-label="Site içi arama"
+                autocomplete="off" 
+                autocorrect="off" 
+                autocapitalize="off" 
+                spellcheck="false"
+                aria-autocomplete="none"
+            >
             <button class="search-btn" aria-label="Ara">
                 <i class="fas fa-search" aria-hidden="true"></i>
             </button>
-        </div>
-        
+        </form>
         <nav class="nav-icons" aria-label="Üst menü">
             <button class="nav-icon" id="dark-mode-toggle" aria-label="Karanlık modu değiştir">
                 <i class="fas fa-moon" id="dark-mode-icon" aria-hidden="true"></i>
