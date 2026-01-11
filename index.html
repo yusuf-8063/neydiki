@@ -41,7 +41,17 @@
         
         <div class="search-container">
             <label for="main-search-input" class="visually-hidden" style="display:none;">Arama</label>
-            <input type="text" id="main-search-input" class="search-input" placeholder="Gönderi, kullanıcı veya etiket ara..." aria-label="Site içi arama">
+            <input 
+    type="search" 
+    name="q_search_neydiki" 
+    id="main-search-input" 
+    class="search-input" 
+    placeholder="Gönderi, kullanıcı veya etiket ara..." 
+    aria-label="Site içi arama"
+    autocomplete="off" 
+    autocapitalize="off" 
+    spellcheck="false"
+>
             <button class="search-btn" aria-label="Ara">
                 <i class="fas fa-search" aria-hidden="true"></i>
             </button>
