@@ -1,4 +1,4 @@
-// account.js - FINAL SÜRÜM (Profil, Gönderi ve Yorum Güncelleme Dahil)
+// account.js - FINAL SÜRÜM (Kullanıcı Adı Gösterimi ve Güncelleme Dahil)
 document.addEventListener('DOMContentLoaded', function() {
     // --- ELEMENTLER ---
     const loginForm = document.getElementById('login-account-form');
@@ -672,6 +672,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const elName = document.getElementById('account-fullname');
         if(elName) elName.textContent = user.fullname || user.username;
+        
+        // --- EKLENEN KISIM: Kullanıcı adını mavi alana yazar ---
+        const elUserDisplay = document.getElementById('account-username-display');
+        if(elUserDisplay) elUserDisplay.textContent = '@' + user.username;
+        // --------------------------------------------------------
+
         const elEmail = document.getElementById('account-email');
         if(elEmail) elEmail.textContent = user.email;
         if (user.joinDate) {
