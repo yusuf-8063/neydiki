@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="NeydiKi? Topluluk odaklı içerik paylaşım platformu.">
+    <title>NeydiKi?</title>
+    
+    <link rel="icon" href="img/favicon_neydiki.webp" type="image/webp">
+    <link rel="apple-touch-icon" href="img/favicon_neydiki.webp">
+
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+    <link rel="preconnect" href="https://www.gstatic.com">
+    <link rel="preconnect" href="https://firebasestorage.googleapis.com">
+
+    <link rel="preload" as="image" href="img/logo_neydiki%20.webp">
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"></noscript>
+    
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="top-nav.css">
+    <link rel="stylesheet" href="nav-bar.css">
+    <link rel="stylesheet" href="account.css">
+
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('theme');
+            const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            const theme = savedTheme || systemTheme;
+            document.documentElement.setAttribute('data-theme', theme);
+        })();
+    </script>
+</head>
+<body>
+
+    <header class="top-nav">
+        <div class="logo">
+            <img src="img/logo_neydiki%20.webp" alt="NeydiKi Logo" class="logo-image">
+        </div>
+        
+        <div class="search-container">
+            <label for="main-search-input" class="visually-hidden" style="display:none;">Arama</label>
+            <input type="text" id="main-search-input" class="search-input" placeholder="Gönderi, kullanıcı veya etiket ara..." aria-label="Site içi arama">
+            <button class="search-btn" aria-label="Ara">
+                <i class="fas fa-search" aria-hidden="true"></i>
+            </button>
+        </div>
+        
+        <nav class="nav-icons" aria-label="Üst menü">
+            <button class="nav-icon" id="dark-mode-toggle" aria-label="Karanlık modu değiştir">
+                <i class="fas fa-moon" id="dark-mode-icon" aria-hidden="true"></i>
+            </button>
+            <button class="nav-icon" id="settings-btn" aria-label="Ayarları aç">
+                <i class="fas fa-cog" aria-hidden="true"></i>
+            </button>
+        </nav>
+    </header>
+    
+    <main id="content-area">
+        
+        <div class="main-content" id="home-content">
+            <div class="content-header">
+                <h2>Akış</h2>
+                <p>Topluluktan en güncel paylaşımlar</p>
+            </div>
+            
+            <div class="home-content-wrapper">
+                <div class="home-main-content">
+                    <div class="filters-container">
+                        <button class="mobile-filter-btn" id="mobile-filter-toggle" aria-label="Filtreleme seçeneklerini aç">
+                            <i class="fas fa-filter" aria-hidden="true"></i>
+                            Filtrele & Sırala
+                            <span class="filter-badge" id="active-filter-count">0</span>
+                        </button>
+                    </div>
+                    
+                    <div class="content-grid" id="image-feed">
+                        </div>
+                </div>
+                
+                <div class="filters-sidebar" id="filters-sidebar">
+                    <div class="filters-header">
+                        <h3 class="filters-title">
+                            <i class="fas fa-layer-group" aria-hidden="true"></i>
+                            Filtreler
+                        </h3>
+                        <button class="close-btn" id="close-filters" aria-label="Filtreleri kapat">
+                            <i class="fas fa-times" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="filters-scroll-content">
+                        <div class="filter-group">
+                            <div class="filter-group-title">
+                                <i class="fas fa-clock" aria-hidden="true"></i>
+                                Zaman Sıralaması
+                            </div>
+                            <div class="filter-options">
+                                <div class="filter-option active" data-filter="timeSort" data-value="newest" role="button" tabindex="0" aria-label="En yeni gönderiler">
+                                    <div class="filter-checkbox radio"></div>
+                                    <span>En Yeni</span>
+                                </div>
+                                <div class="filter-option" data-filter="timeSort" data-value="oldest" role="button" tabindex="0" aria-label="En eski gönderiler">
+                                    <div class="filter-checkbox radio"></div>
+                                    <span>En Eski</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="filter-group">
+                            <div class="filter-group-title">
+                                <i class="fas fa-fire" aria-hidden="true"></i>
+                                Popülerlik
+                            </div>
+                            <div class="filter-options">
+                                <div class="filter-option" data-filter="featureSort" data-value="most-liked" role="button" tabindex="0" aria-label="En çok beğenilenler">
+                                    <div class="filter-checkbox"></div> <span>En Çok Beğenilen</span>
+                                </div>
+                                <div class="filter-option" data-filter="featureSort" data-value="most-commented" role="button" tabindex="0" aria-label="En çok tartışılanlar">
+                                    <div class="filter-checkbox"></div> <span>En Çok Tartışılan</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="filter-group">
+                            <div class="filter-group-title">
+                                <i class="fas fa-calendar-alt" aria-hidden="true"></i>
+                                Tarih Aralığı
+                            </div>
+                            <div class="date-range-container">
+                                <div class="date-input-group">
+                                    <label for="filter-start-date">Başlangıç Tarihi</label>
+                                    <input type="date" id="filter-start-date" class="date-input" aria-label="Başlangıç tarihi seçin">
+                                </div>
+                                <div class="date-input-group">
+                                    <label for="filter-end-date">Bitiş Tarihi</label>
+                                    <input type="date" id="filter-end-date" class="date-input" aria-label="Bitiş tarihi seçin">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="filter-group">
+                            <div class="filter-group-title">
+                                <i class="fas fa-photo-video" aria-hidden="true"></i>
+                                İçerik Türü
+                            </div>
+                            <div class="filter-options">
+                                <div class="filter-option" data-filter="mediaType" data-value="image" role="button" tabindex="0" aria-label="Sadece görsel içeren gönderiler">
+                                    <div class="filter-checkbox"></div>
+                                    <span>Görsel Paylaşımlar</span>
+                                </div>
+                                <div class="filter-option" data-filter="mediaType" data-value="text" role="button" tabindex="0" aria-label="Sadece yazı içeren gönderiler">
+                                    <div class="filter-checkbox"></div>
+                                    <span>Sadece Yazı</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="filter-tags-container">
+                            <div class="filter-group-title">
+                                <i class="fas fa-check-circle" aria-hidden="true"></i>
+                                Aktif Filtreler
+                            </div>
+                            <div class="filter-tags" id="active-filters">
+                                <div class="no-filters">Henüz filtre seçilmedi</div>
+                            </div>
+                        </div>
+                        
+                        <div style="height: 20px;"></div>
+                    </div> 
+
+                    <div class="filter-actions">
+                        <button class="filter-btn secondary" id="clear-filters" aria-label="Filtreleri sıfırla">
+                            <i class="fas fa-undo" aria-hidden="true"></i>
+                            Sıfırla
+                        </button>
+                        <button class="filter-btn primary" id="apply-filters" aria-label="Filtreleri uygula">
+                            <i class="fas fa-check" aria-hidden="true"></i>
+                            Uygula
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-content" id="profile-content" style="display: none;">
+            <div class="content-header">
+                <div class="profile-header">
+                    <div class="profile-avatar">
+                        <div class="user-avatar large" id="profile-avatar-img"></div>
+                    </div>
+                    <div class="profile-info">
+                        <h2 id="profile-username">kullanici</h2>
+                        <div class="profile-stats">
+                            <div class="stat"><span class="count" id="post-count">0</span><span class="label">Gönderi</span></div>
+                            <div class="stat"><span class="count" id="follower-count">0</span><span class="label">Takipçi</span></div>
+                            <div class="stat"><span class="count" id="following-count">0</span><span class="label">Takip</span></div>
+                        </div>
+                        <div class="profile-bio">
+                            <p id="profile-bio-text">...</p>
+                            <p id="profile-location">📍 Konum</p>
+                        </div>
+                        <div class="profile-actions">
+                            <button class="edit-profile-btn" id="edit-profile-btn" style="display:none;" aria-label="Profili düzenle">Profili Düzenle</button> 
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="profile-tabs">
+                <button class="tab-btn active" data-tab="posts" aria-label="Gönderiler sekmesi">Gönderiler</button>
+                <button class="tab-btn" data-tab="saved" aria-label="Kaydedilenler sekmesi">Kaydedilenler</button>
+                <button class="tab-btn" data-tab="tagged" aria-label="Etiketlendiklerim sekmesi">Etiketlendim</button>
+            </div>
+            <div class="profile-grid" id="posts-tab"></div>
+            <div class="profile-grid" id="saved-tab" style="display: none;"></div>
+            <div class="profile-grid" id="tagged-tab" style="display: none;"></div>
+        </div>
+
+        <div class="main-content" id="account-content" style="display: none;">
+            <div class="auth-forms">
+                <div id="auth-loading" class="auth-loading">
+                    <div class="feed-spinner"></div>
+                    <p>Hesap bilgileri yükleniyor...</p>
+                </div>
+
+                <div id="login-account-form" class="auth-form">
+                    <div id="login-error-msg" class="error-message" style="display:none;"></div>
+                    
+                    <div class="form-group input-with-icon">
+                        <label for="account-username"><i class="fas fa-user"></i> Kullanıcı Adı veya E-posta</label>
+                        <input type="text" id="account-username" placeholder="Kullanıcı adınız veya e-posta" aria-label="Kullanıcı adı veya e-posta girin">
+                    </div>
+                    <div class="form-group input-with-icon password-toggle">
+                        <label for="account-password"><i class="fas fa-lock"></i> Şifre</label>
+                        <input type="password" id="account-password" placeholder="Şifreniz" aria-label="Şifrenizi girin">
+                        <button type="button" class="password-toggle-btn" id="toggle-login-password" aria-label="Şifreyi göster/gizle">
+                            <i class="fas fa-eye" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                    
+                    <button class="submit-btn full-width" id="account-login-btn" aria-label="Giriş yap"><i class="fas fa-sign-in-alt" aria-hidden="true"></i> Giriş Yap</button>
+                    
+                    <div class="forgot-password-container">
+                        <span id="forgot-password-btn" class="forgot-password-link" role="button" tabindex="0">Parolamı Unuttum?</span>
+                    </div>
+                    
+                    <div class="auth-switch">Hesabın yok mu? <span class="switch-auth" data-form="register" role="button" tabindex="0">Kayıt Ol</span></div>
+                </div>
+
+                <div id="register-account-form" class="auth-form">
+                    <div class="age-warning" id="age-warning" style="display: none;">
+                        <i class="fas fa-exclamation-triangle" aria-hidden="true"></i><span>15 yaşından küçükler platformu kullanamaz</span>
+                    </div>
+
+                    <div class="form-group input-with-icon">
+                        <label for="register-email"><i class="fas fa-envelope"></i> E-posta</label>
+                        <input type="email" id="register-email" placeholder="E-posta adresiniz" aria-label="E-posta adresinizi girin">
+                    </div>
+                    <div class="form-group input-with-icon">
+                        <label for="register-username"><i class="fas fa-user"></i> Kullanıcı Adı</label>
+                        <input type="text" id="register-username" placeholder="Kullanıcı adınız" aria-label="Kullanıcı adı belirleyin">
+                    </div>
+                    <div class="form-group input-with-icon password-toggle">
+                        <label for="register-password"><i class="fas fa-lock"></i> Şifre</label>
+                        <input type="password" id="register-password" placeholder="Şifreniz (en az 6 karakter)" aria-label="Şifre belirleyin">
+                        <button type="button" class="password-toggle-btn" id="toggle-register-password" aria-label="Şifreyi göster/gizle">
+                            <i class="fas fa-eye" aria-hidden="true"></i>
+                        </button>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="register-firstname">Ad</label>
+                            <input type="text" id="register-firstname" placeholder="Adınız" aria-label="Adınız">
+                        </div>
+                        <div class="form-group">
+                            <label for="register-lastname">Soyad</label>
+                            <input type="text" id="register-lastname" placeholder="Soyadınız" aria-label="Soyadınız">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="register-birthdate">Doğum Tarihi</label>
+                        <div class="birthdate-inputs" id="register-birthdate">
+                            <select id="register-birthday" aria-label="Doğum günü"><option value="">Gün</option></select>
+                            <select id="register-birthmonth" aria-label="Doğum ayı"><option value="">Ay</option></select>
+                            <select id="register-birthyear" aria-label="Doğum yılı"><option value="">Yıl</option></select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="register-gender">Cinsiyet</label>
+                        <select id="register-gender" aria-label="Cinsiyet seçimi">
+                            <option value="">Seçiniz</option>
+                            <option value="male">Erkek</option>
+                            <option value="female">Kadın</option>
+                            <option value="other">Diğer</option>
+                            <option value="prefer_not_to_say">Belirtmek İstemiyorum</option>
+                        </select>
+                    </div>
+                    <button class="submit-btn full-width" id="account-register-btn" aria-label="Kayıt ol"><i class="fas fa-user-plus" aria-hidden="true"></i> Kayıt Ol</button>
+                    <div class="auth-switch">Zaten hesabın var mı? <span class="switch-auth" data-form="login" role="button" tabindex="0">Giriş Yap</span></div>
+                </div>
+
+                <div id="forgot-password-form" class="auth-form" style="display: none;">
+                    <div class="form-group input-with-icon">
+                        <p style="margin-bottom: 20px; color: var(--text-light); text-align: center; font-size: 14px; line-height: 1.5;">
+                            Hesabınıza kayıtlı e-posta adresinizi girin. Size bir sıfırlama bağlantısı göndereceğiz.
+                        </p>
+                        <label for="forgot-email">
+                            <i class="fas fa-envelope"></i>
+                            E-posta Adresi
+                        </label>
+                        <input type="email" id="forgot-email" placeholder="E-posta adresiniz" aria-label="Sıfırlama için e-posta adresi">
+                    </div>
+                    
+                    <button class="submit-btn full-width" id="send-reset-btn" aria-label="Sıfırlama bağlantısı gönder">
+                        <i class="fas fa-paper-plane" aria-hidden="true"></i>
+                        Bağlantıyı Gönder
+                    </button>
+                    
+                    <div class="auth-switch">
+                        <span class="switch-auth" data-form="login" role="button" tabindex="0">
+                            <i class="fas fa-arrow-left" aria-hidden="true"></i> Giriş Ekranına Dön
+                        </span>
+                    </div>
+                </div>
+
+                <div id="account-info" class="account-info" style="display: none;">
+                    <div class="account-header">
+                        <div class="account-avatar">
+                            <div class="user-avatar large" id="account-avatar"></div>
+                        </div>
+                        <div class="account-details">
+                            <h3 id="account-fullname">Kullanıcı</h3>
+                            <p id="account-username-display" style="color: rgba(255,255,255,0.9); font-weight: 600; font-size: 14px; margin-bottom: 5px;">@kullaniciadi</p>
+                            <p id="account-email">...</p>
+                            <p class="member-since"><i class="fas fa-calendar-check" aria-hidden="true"></i> Üyelik: <span id="member-since">...</span></p>
+                        </div>
+                    </div>
+                    <div class="account-stats">
+                        <div class="account-stat"><i class="fas fa-images" aria-hidden="true"></i><strong id="account-posts">0</strong><span>Gönderi</span></div>
+                        <div class="account-stat"><i class="fas fa-heart" aria-hidden="true"></i><strong id="account-likes">0</strong><span>Beğeni</span></div>
+                        <div class="account-stat"><i class="fas fa-calendar-day" aria-hidden="true"></i><strong id="account-days">0</strong><span>Gündür üye</span></div>
+                    </div>
+                    <div class="account-actions">
+                        <button class="account-btn secondary" id="edit-account-btn" aria-label="Bilgilerimi düzenle"><i class="fas fa-edit" aria-hidden="true"></i> Bilgilerimi Düzenle</button>
+                        <button class="account-btn primary" id="upgrade-premium-btn" aria-label="Premium yükselt"><i class="fas fa-crown" aria-hidden="true"></i> Premium Yükselt</button>
+                        <button class="account-btn warning" id="logout-btn" aria-label="Çıkış yap"><i class="fas fa-sign-out-alt" aria-hidden="true"></i> Çıkış Yap</button>
+                        <button class="account-btn danger" id="delete-account-btn" aria-label="Hesabımı sil"><i class="fas fa-trash-alt" aria-hidden="true"></i> Hesabımı Sil</button>
+                    </div>
+                    <div class="account-posts-section">
+                        <h3 class="section-title"><i class="fas fa-photo-video" aria-hidden="true"></i> Gönderi Yönetimi</h3>
+                        <div class="post-management-actions">
+                            <button class="action-btn primary" id="add-new-post-btn" aria-label="Yeni gönderi ekle"><i class="fas fa-plus" aria-hidden="true"></i> Yeni Gönderi Ekle</button>
+                        </div>
+                        <div class="account-posts-grid" id="account-posts-grid"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <nav class="floating-nav" aria-label="Alt navigasyon menüsü">
+        <div class="nav-container">
+            <div class="nav-item active" id="home-nav" role="button" tabindex="0" aria-label="Ana sayfa">
+                <div class="nav-icon"><i class="fas fa-home" aria-hidden="true"></i></div>
+                <div class="nav-label">Ana Sayfa</div>
+            </div>
+            <div class="nav-item" id="add-post-nav" role="button" tabindex="0" aria-label="Gönderi ekle">
+                <div class="nav-icon"><i class="fas fa-plus-square" aria-hidden="true"></i></div>
+                <div class="nav-label">Ekle</div>
+            </div>
+            <div class="nav-item" id="account-nav" role="button" tabindex="0" aria-label="Hesap profili">
+                <div class="nav-icon"><i class="fas fa-user" aria-hidden="true"></i></div>
+                <div class="nav-label">Hesap</div>
+            </div>
+        </div>
+    </nav>
+    
+    <div class="modal" id="add-post-modal" aria-hidden="true">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Yeni Gönderi</h3>
+                <button class="close-btn" id="close-add-post" aria-label="Kapat">×</button>
+            </div>
+            <div class="file-upload" id="image-upload-area" role="button" tabindex="0" aria-label="Görsel yüklemek için tıkla">
+                <i class="fas fa-cloud-upload-alt" aria-hidden="true"></i>
+                <div class="file-upload-text">Görsel seçmek için dokun</div>
+                <img id="image-preview" alt="Seçilen görsel önizlemesi" style="display: none; max-width: 100%; max-height: 300px; margin-top: 15px; border-radius: 8px;">
+            </div>
+            <div class="form-group">
+                <label for="post-caption">Açıklama</label>
+                <input type="text" id="post-caption" placeholder="Bir şeyler yaz..." aria-label="Gönderi açıklaması">
+            </div>
+            <button class="submit-btn" id="share-post-btn" aria-label="Gönderiyi paylaş">Paylaş</button>
+        </div>
+    </div>
+
+    <div class="modal" id="discussion-modal" aria-hidden="true">
+        <div class="modal-content discussion-modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Tartışma</h3>
+                <button class="close-btn" id="close-discussion" aria-label="Kapat">×</button>
+            </div>
+            <div class="discussion-image-container">
+                <div id="discussion-image"></div>
+            </div>
+            <div class="discussion-content">
+                <div class="post-caption" id="discussion-caption"></div>
+                <div class="comments-section">
+                    <div class="comments-list" id="comments-list"></div>
+                </div>
+                <div class="add-comment">
+                    <label for="comment-input" class="visually-hidden" style="display:none;">Yorum yaz</label>
+                    <input type="text" id="comment-input" placeholder="Yorumunuzu yazın..." aria-label="Yorum yazın">
+                    <button id="submit-comment" aria-label="Yorum gönder"><i class="fas fa-paper-plane" aria-hidden="true"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="edit-profile-modal" aria-hidden="true">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Profili Düzenle</h3>
+                <button class="close-btn" id="close-edit-profile" aria-label="Kapat">×</button>
+            </div>
+            
+            <div class="edit-profile-image-section">
+                <div class="edit-avatar-preview" id="edit-avatar-preview">
+                    <i class="fas fa-user" aria-hidden="true"></i>
+                </div>
+                <div class="edit-avatar-actions">
+                    <label for="edit-profile-upload" class="upload-btn-label">
+                        <i class="fas fa-camera" aria-hidden="true"></i> Fotoğraf Seç
+                    </label>
+                    <input type="file" id="edit-profile-upload" accept="image/*" hidden aria-label="Profil fotoğrafı yükle">
+                    <button id="remove-profile-pic" class="remove-pic-btn" style="display:none;" aria-label="Fotoğrafı kaldır">Fotoğrafı Kaldır</button>
+                </div>
+            </div>
+
+            <div class="form-group"><label for="edit-username">Kullanıcı Adı</label><input type="text" id="edit-username" placeholder="Kullanıcı adı" aria-label="Kullanıcı adını düzenle"></div>
+            <div class="form-group"><label for="edit-fullname">Ad Soyad</label><input type="text" id="edit-fullname" placeholder="Adınız ve soyadınız" aria-label="Ad ve soyad düzenle"></div>
+            <div class="form-group"><label for="edit-birthdate">Doğum Tarihi</label><input type="date" id="edit-birthdate" aria-label="Doğum tarihini düzenle"></div>
+            
+            <div class="form-actions">
+                <button class="submit-btn" id="save-profile-btn" aria-label="Değişiklikleri kaydet">Değişiklikleri Kaydet</button>
+                <button class="cancel-btn" id="cancel-edit-btn" aria-label="İptal et">İptal</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="modal" id="settings-modal" aria-hidden="true">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Ayarlar</h3>
+                <button class="close-btn" id="close-settings" aria-label="Kapat">×</button>
+            </div>
+            <div class="settings-list">
+                <div class="setting-item">
+                    <i class="fas fa-moon" aria-hidden="true"></i>
+                    <span>Karanlık Mod</span>
+                    <label class="switch" for="dark-mode-switch">
+                        <input type="checkbox" id="dark-mode-switch" aria-label="Karanlık modu aç/kapat">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="setting-item" style="color: #ff4757;" role="button" tabindex="0" aria-label="Çıkış yap">
+                    <i class="fas fa-sign-out-alt" aria-hidden="true"></i>
+                    <span>Çıkış Yap</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js" defer></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js" defer></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js" defer></script>
+    
+    <script src="firebase-init.js" defer></script>
+    <script src="script.js" defer></script>
+    <script src="top-nav.js" defer></script>
+    <script src="nav-bar.js" defer></script>
+    <script src="account.js" defer></script>
+    <script src="feed.js" defer></script>
+    <script src="filters.js" defer></script>
+
+    <div id="fullscreen-viewer" class="fullscreen-viewer" aria-hidden="true">
+        <div class="close-fullscreen" id="close-fullscreen-btn" role="button" tabindex="0" aria-label="Tam ekranı kapat">
+            <i class="fas fa-times" aria-hidden="true"></i>
+        </div>
+        <div class="fullscreen-img-container" id="fullscreen-img-container">
+            <img class="fullscreen-image" id="fullscreen-image" src="" alt="Tam ekran görüntü">
+        </div>
+    </div>
+
+</body>
+</html>
