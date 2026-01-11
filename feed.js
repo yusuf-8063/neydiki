@@ -1,4 +1,4 @@
-// feed.js - GOOGLE OTO-DOLDURMA KAPALI + KLAVYE "GÖNDER" TUŞLU
+// feed.js - GOOGLE OTO-DOLDURMA KESİN ÇÖZÜM (READONLY HACK)
 document.addEventListener('DOMContentLoaded', function() {
     
     // --- DİNAMİK CSS STİLLERİ ---
@@ -275,8 +275,7 @@ document.addEventListener('DOMContentLoaded', function() {
             avatarContent = `<i class="fas fa-user" style="color: #999; font-size: 18px;" aria-hidden="true"></i>`;
         }
 
-        // --- GÜNCELLEME: TYPE="TEXT" + ENTERKEYHINT="SEND" ---
-        // name="fld_..." yaptık, "comment" kelimesini sildik ki tarayıcı adres sanmasın.
+        // --- GÜNCELLEME: READONLY HACK + FORM WRAPPER ---
         div.innerHTML = `
             <div class="card-header">
                 <div class="user-avatar" style="${avatarStyle}" aria-label="${post.username} profil resmi">${avatarContent}</div>
@@ -304,19 +303,23 @@ document.addEventListener('DOMContentLoaded', function() {
             <div class="discussion-section" id="discussion-${post.id}">
                 <div class="comments-container"><div class="comments-list" data-loaded="false"></div></div>
                 <div class="add-comment">
-                    <input 
-                        type="text" 
-                        class="comment-input" 
-                        name="fld_${post.id}_${Math.random().toString(36).substring(7)}" 
-                        placeholder="Yorumunuzu yazın..." 
-                        autocomplete="off" 
-                        autocorrect="off" 
-                        autocapitalize="off" 
-                        spellcheck="false" 
-                        enterkeyhint="send"
-                        aria-label="Yorum yaz"
-                    >
-                    <button class="submit-comment inline-submit-btn" aria-label="Yorum gönder"><i class="fas fa-paper-plane"></i></button>
+                    <form action="javascript:void(0);" autocomplete="off" style="width:100%; display:flex; align-items:center; margin:0; padding:0; border:none; background:transparent;">
+                        <input 
+                            type="text" 
+                            class="comment-input" 
+                            name="fld_${post.id}_${Math.random().toString(36).substring(7)}" 
+                            placeholder="Yorumunuzu yazın..." 
+                            autocomplete="off" 
+                            autocorrect="off" 
+                            autocapitalize="off" 
+                            spellcheck="false" 
+                            enterkeyhint="send"
+                            readonly
+                            onfocus="this.removeAttribute('readonly');"
+                            aria-label="Yorum yaz"
+                        >
+                        <button class="submit-comment inline-submit-btn" type="button" aria-label="Yorum gönder"><i class="fas fa-paper-plane"></i></button>
+                    </form>
                 </div>
             </div>
         `;
@@ -359,7 +362,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     const scrollContainer = div.querySelector('.comments-container');
                     if(scrollContainer) setTimeout(() => { scrollContainer.scrollTop = scrollContainer.scrollHeight; }, 100); 
                     
-                    // Klavye otomatik açılmasın diye focus kodu kaldırıldı.
                 } else {
                     discSection.classList.remove('expanded'); 
                     openDiscussionIds.delete(post.id);
