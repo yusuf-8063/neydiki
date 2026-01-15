@@ -1,4 +1,4 @@
-// account.js - FINAL SÜRÜM (Kullanıcı Adı Gösterimi ve Güncelleme Dahil)
+// account.js - FINAL SÜRÜM (Kullanıcı Adı Gösterimi, Güncelleme ve Çift Göz Hatası Giderildi)
 document.addEventListener('DOMContentLoaded', function() {
     // --- ELEMENTLER ---
     const loginForm = document.getElementById('login-account-form');
@@ -18,9 +18,15 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentDetailPostId = null;
     let currentPostData = null; 
 
-    // --- CSS YAMASI (Yorum Kısaltma ve Modal Stilleri) ---
+    // --- CSS YAMASI (Yorum Kısaltma, Modal Stilleri ve ÇİFT GÖZ DÜZELTMESİ) ---
     const fixModalStyle = document.createElement('style');
     fixModalStyle.textContent = `
+        /* Tarayıcı varsayılan şifre ikonunu gizle (Çift göz hatası çözümü) */
+        input[type="password"]::-ms-reveal,
+        input[type="password"]::-ms-clear {
+            display: none !important;
+        }
+        
         /* MODAL STİLLERİ */
         #discussion-modal .discussion-modal-content {
             display: flex !important; flex-direction: column !important;
@@ -832,7 +838,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     }
 
-    // --- ŞİFRE SIFIRLAMA FONKSİYONU ---
+    // --- ŞİFRE SIFIRLAMA FONKSİYONU (GÜNCELLENMİŞ) ---
     function handlePasswordReset() {
         const emailInput = document.getElementById('forgot-email');
         const email = emailInput ? emailInput.value.trim() : '';
@@ -844,28 +850,50 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const btn = document.getElementById('send-reset-btn');
         const originalText = btn.innerHTML;
-        btn.innerHTML = 'Gönderiliyor...';
+        
+        btn.innerHTML = 'Kontrol ediliyor...';
         btn.disabled = true;
 
-        auth.sendPasswordResetEmail(email)
-            .then(() => {
-                showNotification('Sıfırlama bağlantısı e-posta adresinize gönderildi.', 'success');
-                setTimeout(() => {
-                    if(forgotPasswordForm) forgotPasswordForm.classList.remove('visible-flex');
-                    if(loginForm) loginForm.classList.add('visible-flex');
-                    if(accountTitle) accountTitle.textContent = 'Hesabınıza Giriş Yapın';
-                }, 2000);
-            })
-            .catch((error) => {
-                let msg = "Bir hata oluştu.";
-                if (error.code === 'auth/user-not-found') {
-                    msg = "Bu e-posta adresiyle kayıtlı kullanıcı bulunamadı.";
-                } else if (error.code === 'auth/invalid-email') {
-                    msg = "Geçersiz e-posta adresi.";
+        // 1. Veritabanı kontrolü: Önce bu e-postanın kayıtlı olup olmadığına bak
+        db.collection('users').where('email', '==', email).get()
+            .then(snapshot => {
+                // Eğer kayıt yoksa kullanıcıya bildir ve işlemi durdur
+                if (snapshot.empty) {
+                    showNotification('Bu e-posta adresiyle kayıtlı bir hesap bulunamadı.', 'error');
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                    return;
                 }
-                showNotification(msg, 'error');
+
+                // 2. Kullanıcı varsa Firebase şifre sıfırlama mailini gönder
+                btn.innerHTML = 'Gönderiliyor...';
+                auth.sendPasswordResetEmail(email)
+                    .then(() => {
+                        showNotification('Sıfırlama bağlantısı e-posta adresinize gönderildi.', 'success');
+                        setTimeout(() => {
+                            if(forgotPasswordForm) forgotPasswordForm.classList.remove('visible-flex');
+                            if(loginForm) loginForm.classList.add('visible-flex');
+                            if(accountTitle) accountTitle.textContent = 'Hesabınıza Giriş Yapın';
+                        }, 2000);
+                    })
+                    .catch((error) => {
+                        let msg = "Bir hata oluştu.";
+                        if (error.code === 'auth/invalid-email') {
+                            msg = "Geçersiz e-posta adresi formatı.";
+                        } else if (error.code === 'auth/user-not-found') {
+                            // Buraya düşmesi zor ama yine de ekleyelim
+                            msg = "Kullanıcı bulunamadı.";
+                        }
+                        showNotification(msg, 'error');
+                    })
+                    .finally(() => {
+                        btn.innerHTML = originalText;
+                        btn.disabled = false;
+                    });
             })
-            .finally(() => {
+            .catch(error => {
+                console.error("Hata:", error);
+                showNotification('Bağlantı hatası, lütfen tekrar deneyin.', 'error');
                 btn.innerHTML = originalText;
                 btn.disabled = false;
             });
