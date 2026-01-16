@@ -1,26 +1,66 @@
-// script.js - FINAL (MOBİL OTO YÜKSEKLİK SÜRÜMÜ)
-
+// script.js - MODERN BİLDİRİM SİSTEMİ (BOTTOM TOAST)
 // Global değişkenler ve yardımcı fonksiyonlar
+
+// ESKİ "showNotification" YERİNE YENİSİ:
 function showNotification(message, type = 'info') {
-    const existingNotification = document.querySelector('.notification');
+    // Varsa eskisini kaldır
+    const existingNotification = document.querySelector('.modern-toast');
     if (existingNotification) existingNotification.remove();
     
+    // Yeni bildirim elementi
     const notification = document.createElement('div');
-    notification.className = `notification notification-${type}`;
-    notification.textContent = message;
+    notification.className = `modern-toast toast-${type}`;
     
+    // İkon seçimi
+    let icon = '';
+    if (type === 'success') icon = '<i class="fas fa-check-circle"></i>';
+    else if (type === 'error') icon = '<i class="fas fa-exclamation-circle"></i>';
+    else icon = '<i class="fas fa-info-circle"></i>';
+
+    notification.innerHTML = `${icon} <span>${message}</span>`;
+    
+    // Modern Stil (Instagram Tarzı - Ekran Altı)
     notification.style.cssText = `
-        position: fixed; top: 20px; right: 20px; padding: 12px 20px; border-radius: 8px;
-        color: white; font-weight: 500; z-index: 2001; animation: slideIn 0.3s ease;
-        max-width: 300px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        background: ${type === 'success' ? '#4CAF50' : type === 'error' ? '#f44336' : '#2196F3'};
+        position: fixed; 
+        bottom: 90px; /* Nav barın hemen üstü */
+        left: 50%;
+        transform: translateX(-50%) translateY(20px);
+        background-color: #262626;
+        color: white;
+        padding: 12px 24px;
+        border-radius: 50px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        z-index: 10000;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 14px;
+        font-weight: 500;
+        opacity: 0;
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        pointer-events: none;
+        white-space: nowrap;
+        max-width: 90%;
     `;
     
+    // Hata ise kırmızımsı, başarı ise koyu ton
+    if (type === 'error') notification.style.backgroundColor = '#ff4757';
+    if (type === 'success') notification.style.backgroundColor = '#4CAF50';
+
     document.body.appendChild(notification);
+    
+    // Animasyon: Giriş
+    requestAnimationFrame(() => {
+        notification.style.opacity = '1';
+        notification.style.transform = 'translateX(-50%) translateY(0)';
+    });
+
+    // Animasyon: Çıkış
     setTimeout(() => {
         if (notification.parentNode) {
-            notification.style.animation = 'slideOut 0.3s ease';
-            setTimeout(() => notification.remove(), 300);
+            notification.style.opacity = '0';
+            notification.style.transform = 'translateX(-50%) translateY(20px)';
+            setTimeout(() => notification.remove(), 400);
         }
     }, 3000);
 }
@@ -130,48 +170,19 @@ document.addEventListener('DOMContentLoaded', function() {
         if (e.target === discussionModal) closeModal(discussionModal);
     });
 
-    // --- GÜNCELLENEN KISIM BURASI ---
     const style = document.createElement('style');
     style.textContent = `
-        @keyframes slideIn { 
-            from { transform: translateX(100%); opacity: 0; } 
-            to { transform: translateX(0); opacity: 1; } 
-        }
-        @keyframes slideOut { 
-            from { transform: translateX(0); opacity: 1; } 
-            to { transform: translateX(100%); opacity: 0; } 
-        }
+        /* Orijinal CSS animasyonları */
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
+        
         .delete-post-btn { background: none; border: none; color: var(--text-light); cursor: pointer; padding: 8px; border-radius: 8px; transition: all 0.3s ease; font-size: 16px; margin-left: auto; }
         .delete-post-btn:hover { background-color: rgba(255, 71, 87, 0.1); color: #ff4757; }
-        .empty-state { text-align: center; padding: 60px 20px; color: var(--text-light); }
-        .empty-state i { margin-bottom: 16px; font-size: 48px; }
-        .empty-state h3 { margin-bottom: 8px; font-weight: 600; font-size: 18px; }
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: var(--background); border-radius: 4px; }
-        ::-webkit-scrollbar-thumb { background: var(--primary); border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #0081d6; }
-        * { scrollbar-width: thin; scrollbar-color: var(--primary) var(--background); }
         
-        /* GÜNCELLENMİŞ OTO YÜKSEKLİK AYARLARI */
-        .card-image { 
-            max-width: 100%; 
-            height: auto !important; /* Otomatik yükseklik */
-            width: 100%; 
-            object-fit: contain; 
-        }
-        
-        @media (max-width: 768px) { 
-            .card-image { 
-                height: auto !important; 
-                max-height: 600px !important; /* Max sınır 600px */
-            } 
-        }
-        @media (max-width: 480px) { 
-            .card-image { 
-                height: auto !important; 
-                max-height: 500px !important; /* Max sınır 500px */
-            } 
-        }
+        /* OTO YÜKSEKLİK */
+        .card-image { max-width: 100%; height: auto !important; width: 100%; object-fit: contain; }
+        @media (max-width: 768px) { .card-image { height: auto !important; max-height: 600px !important; } }
+        @media (max-width: 480px) { .card-image { height: auto !important; max-height: 500px !important; } }
     `;
     document.head.appendChild(style);
 });
