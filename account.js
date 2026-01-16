@@ -1,4 +1,4 @@
-// account.js - FINAL SÜRÜM (Kullanıcı Adı Gösterimi, Güncelleme ve Çift Göz Hatası Giderildi)
+// account.js - GÜVENLİ VE TAM SİLME ÖZELLİKLİ FİNAL VERSİYON + ADMIN YETKİLERİ
 document.addEventListener('DOMContentLoaded', function() {
     // --- ELEMENTLER ---
     const loginForm = document.getElementById('login-account-form');
@@ -14,86 +14,33 @@ document.addEventListener('DOMContentLoaded', function() {
     const discussionCaptionEl = document.getElementById('discussion-caption');
     const discussionCommentsList = document.getElementById('comments-list');
     
-    // Yorum Takibi için Değişken
     let currentDetailPostId = null;
     let currentPostData = null; 
 
-    // --- CSS YAMASI (Yorum Kısaltma, Modal Stilleri ve ÇİFT GÖZ DÜZELTMESİ) ---
+    // --- CSS YAMASI ---
     const fixModalStyle = document.createElement('style');
     fixModalStyle.textContent = `
-        /* Tarayıcı varsayılan şifre ikonunu gizle (Çift göz hatası çözümü) */
-        input[type="password"]::-ms-reveal,
-        input[type="password"]::-ms-clear {
-            display: none !important;
-        }
+        /* Çift Göz İkonu Hatası Çözümü */
+        input[type="password"]::-ms-reveal, input[type="password"]::-ms-clear { display: none !important; }
         
-        /* MODAL STİLLERİ */
-        #discussion-modal .discussion-modal-content {
-            display: flex !important; flex-direction: column !important;
-            height: 85vh !important; max-height: 85vh !important;
-            width: 95% !important; max-width: 500px !important;
-            padding: 0 !important; overflow: hidden !important;
-            border-radius: 15px !important;
-        }
+        /* Modal ve Hata Stilleri */
+        #discussion-modal .discussion-modal-content { display: flex !important; flex-direction: column !important; height: 85vh !important; max-height: 85vh !important; width: 95% !important; max-width: 500px !important; padding: 0 !important; overflow: hidden !important; border-radius: 15px !important; }
         #discussion-modal .modal-header { flex-shrink: 0 !important; z-index: 2 !important; background: var(--surface) !important; }
-        #discussion-modal .discussion-image-container {
-            flex-shrink: 0 !important; max-height: 30vh !important;
-            background: #000 !important; display: flex !important;
-            align-items: center !important; justify-content: center !important;
-        }
-        #discussion-modal .discussion-content {
-            flex: 1 !important; display: flex !important; flex-direction: column !important;
-            overflow: hidden !important; position: relative !important; min-height: 0 !important;
-        }
-        #discussion-modal .post-caption {
-            flex-shrink: 0 !important; padding: 10px 15px !important;
-            border-bottom: 1px solid var(--border) !important;
-            max-height: 80px !important; overflow-y: auto !important;
-        }
-        #discussion-modal .comments-section {
-            flex-grow: 1 !important; overflow-y: auto !important; padding: 10px !important;
-            scroll-behavior: smooth !important; background: var(--surface) !important; display: block !important;
-        }
+        #discussion-modal .discussion-image-container { flex-shrink: 0 !important; max-height: 30vh !important; background: #000 !important; display: flex !important; align-items: center !important; justify-content: center !important; }
+        #discussion-modal .discussion-content { flex: 1 !important; display: flex !important; flex-direction: column !important; overflow: hidden !important; position: relative !important; min-height: 0 !important; }
+        #discussion-modal .post-caption { flex-shrink: 0 !important; padding: 10px 15px !important; border-bottom: 1px solid var(--border) !important; max-height: 80px !important; overflow-y: auto !important; }
+        #discussion-modal .comments-section { flex-grow: 1 !important; overflow-y: auto !important; padding: 10px !important; scroll-behavior: smooth !important; background: var(--surface) !important; display: block !important; }
         #discussion-modal .comments-list { padding-bottom: 10px !important; }
-        #discussion-modal .add-comment {
-            flex-shrink: 0 !important; padding: 10px 15px !important;
-            background: var(--surface) !important; border-top: 1px solid var(--border) !important;
-            position: relative !important; z-index: 10 !important; margin-top: auto !important;
-        }
-        /* Profil Resmi Önizleme Stili */
-        #edit-avatar-preview {
-            background-size: cover; background-position: center;
-            background-color: #e1e1e1; color: #999;
-            display: flex; align-items: center; justify-content: center;
-        }
-        /* Şifre Hatası Sallama Efekti */
+        #discussion-modal .add-comment { flex-shrink: 0 !important; padding: 10px 15px !important; background: var(--surface) !important; border-top: 1px solid var(--border) !important; position: relative !important; z-index: 10 !important; margin-top: auto !important; }
+        #edit-avatar-preview { background-size: cover; background-position: center; background-color: #e1e1e1; color: #999; display: flex; align-items: center; justify-content: center; }
         .error-shake { animation: shake 0.4s ease-in-out; }
         @keyframes shake { 0%, 100% { transform: translateX(0); } 20%, 60% { transform: translateX(-5px); border-color: #ff4757; } 40%, 80% { transform: translateX(5px); } }
-
-        /* Yorum Kısaltma ve Lazy Load Stilleri */
-        .comment-text.collapsed {
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        .read-more-btn {
-            background: none;
-            border: none;
-            color: var(--text-light);
-            font-size: 11px;
-            font-weight: 600;
-            cursor: pointer;
-            padding: 0;
-            margin-top: 2px;
-            display: inline-block;
-        }
+        .comment-text.collapsed { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; }
+        .read-more-btn { background: none; border: none; color: var(--text-light); font-size: 11px; font-weight: 600; cursor: pointer; padding: 0; margin-top: 2px; display: inline-block; }
         .read-more-btn:hover { text-decoration: underline; color: var(--primary); }
     `;
     document.head.appendChild(fixModalStyle);
 
-    // --- GÜVENLİK RESETİ ---
     function resetUI() {
         if(loginForm) loginForm.classList.remove('visible-flex');
         if(registerForm) registerForm.classList.remove('visible-flex');
@@ -104,28 +51,21 @@ document.addEventListener('DOMContentLoaded', function() {
     
     resetUI();
 
-    // --- ELEMENT SEÇİMLERİ ---
     const addNewPostBtn = document.getElementById('add-new-post-btn');
     const logoutBtn = document.getElementById('logout-btn');
     const deleteAccountBtn = document.getElementById('delete-account-btn'); 
     const loginBtn = document.getElementById('account-login-btn');
     const registerBtn = document.getElementById('account-register-btn');
-    
-    // Parolamı Unuttum Elementleri
     const forgotPasswordBtn = document.getElementById('forgot-password-btn');
     const sendResetBtn = document.getElementById('send-reset-btn');
 
-    // --- BAŞLATMA ---
     initializeBirthdateSelects();
     setupEventListeners();
     setupLogoRedirect();
     setupCommentSystem();
     setupProfileEditing();
 
-    // --- YARDIMCI FONKSİYONLAR ---
-    function hideLoading() {
-        setTimeout(() => { if(authLoading) authLoading.style.display = 'none'; }, 300);
-    }
+    function hideLoading() { setTimeout(() => { if(authLoading) authLoading.style.display = 'none'; }, 300); }
     
     function timeAgo(date) {
         const s = Math.floor((new Date() - new Date(date)) / 1000);
@@ -152,13 +92,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // --- EVENT LISTENERS ---
     function setupEventListeners() {
         document.querySelectorAll('.switch-auth').forEach(btn => { btn.addEventListener('click', handleFormSwitch); });
-        
         if (loginBtn) loginBtn.addEventListener('click', handleLogin);
         if (registerBtn) registerBtn.addEventListener('click', handleRegister);
-        
         if (addNewPostBtn) addNewPostBtn.addEventListener('click', handleAddNewPost);
         
         if (logoutBtn) {
@@ -169,9 +106,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
         
-        if (deleteAccountBtn) {
-            deleteAccountBtn.addEventListener('click', handleDeleteAccount);
-        }
+        if (deleteAccountBtn) { deleteAccountBtn.addEventListener('click', handleDeleteAccount); }
 
         if (forgotPasswordBtn) {
             forgotPasswordBtn.addEventListener('click', function() {
@@ -179,16 +114,21 @@ document.addEventListener('DOMContentLoaded', function() {
                 if(registerForm) registerForm.classList.remove('visible-flex');
                 if(forgotPasswordForm) forgotPasswordForm.classList.add('visible-flex');
                 if(accountTitle) accountTitle.textContent = 'Şifre Sıfırlama';
+                
+                // Hata mesajlarını temizle
+                const errorMsg = document.getElementById('login-error-msg');
+                if(errorMsg) errorMsg.style.display = 'none';
+                const forgotErrorMsg = document.getElementById('forgot-error-msg');
+                if(forgotErrorMsg) forgotErrorMsg.style.display = 'none';
+                const regErrorMsg = document.getElementById('register-error-msg');
+                if(regErrorMsg) regErrorMsg.style.display = 'none';
             });
         }
 
-        if (sendResetBtn) {
-            sendResetBtn.addEventListener('click', handlePasswordReset);
-        }
+        if (sendResetBtn) { sendResetBtn.addEventListener('click', handlePasswordReset); }
         
         const toggleRegPassBtn = document.getElementById('toggle-register-password');
         const regPassInput = document.getElementById('register-password');
-
         if (toggleRegPassBtn && regPassInput) {
             toggleRegPassBtn.addEventListener('click', function(e) {
                 e.preventDefault();
@@ -201,7 +141,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const toggleLoginPassBtn = document.getElementById('toggle-login-password');
         const loginPassInput = document.getElementById('account-password');
-
         if (toggleLoginPassBtn && loginPassInput) {
             toggleLoginPassBtn.addEventListener('click', function(e) {
                 e.preventDefault();
@@ -213,30 +152,51 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // --- HESAP SİLME FONKSİYONU ---
+    // --- GÜÇLENDİRİLMİŞ HESAP SİLME FONKSİYONU ---
     async function handleDeleteAccount() {
-        if (!confirm('HESABINIZI SİLMEK ÜZERESİNİZ!\n\nBu işlem geri alınamaz. Tüm gönderileriniz, yorumlarınız ve beğenileriniz kalıcı olarak silinecektir.\n\nDevam etmek istiyor musunuz?')) return;
+        if (!confirm('HESABINIZI SİLMEK ÜZERESİNİZ!\n\nBu işlem geri alınamaz. Tüm gönderileriniz, yorumlarınız ve beğenileriniz kalıcı olarak silinecektir. Devam etmek istiyor musunuz?')) return;
         if (!confirm('Son onay: Hesabınızı ve tüm verilerinizi silmek istediğinize emin misiniz?')) return;
 
         const user = firebase.auth().currentUser;
-        const dbUser = JSON.parse(localStorage.getItem('currentUser'));
-        
-        if (!user || !dbUser) {
-            alert('Oturum hatası. Lütfen sayfayı yenileyip tekrar giriş yapın.');
-            return;
-        }
+        if (!user) { alert('Oturum hatası. Lütfen sayfayı yenileyip tekrar giriş yapın.'); return; }
 
         const deleteBtn = document.getElementById('delete-account-btn');
-        const originalText = deleteBtn.innerHTML;
-        deleteBtn.innerHTML = 'Siliniyor... <i class="fas fa-spinner fa-spin"></i>';
-        deleteBtn.disabled = true;
+        let originalText = '';
+        if(deleteBtn) {
+            originalText = deleteBtn.innerHTML;
+            deleteBtn.innerHTML = 'Veriler Temizleniyor... <i class="fas fa-spinner fa-spin"></i>';
+            deleteBtn.disabled = true;
+        }
 
         try {
-            const batch = db.batch();
-            const postsSnapshot = await db.collection('posts').where('uid', '==', user.uid).get();
-            postsSnapshot.forEach(doc => { batch.delete(doc.ref); });
-            await batch.commit();
+            // 1. ADIM: Güncel kullanıcı adını veritabanından al (LocalStorage eski kalmış olabilir)
+            let currentUsername = null;
+            const userDoc = await db.collection('users').doc(user.uid).get();
+            if (userDoc.exists) {
+                currentUsername = userDoc.data().username;
+            } else {
+                // Eğer veritabanında kullanıcı yoksa localStorage'a bak
+                const localData = JSON.parse(localStorage.getItem('currentUser'));
+                if (localData) currentUsername = localData.username;
+            }
 
+            // 2. ADIM: Kullanıcının kendi gönderilerini sil (Batch Limit Korumalı)
+            const userPostsSnapshot = await db.collection('posts').where('uid', '==', user.uid).get();
+            
+            // Firestore batch limiti 500'dür, fazlası için parçalı silme gerekir
+            const BATCH_SIZE = 450;
+            const chunks = [];
+            const docs = userPostsSnapshot.docs;
+            
+            for (let i = 0; i < docs.length; i += BATCH_SIZE) {
+                const chunk = docs.slice(i, i + BATCH_SIZE);
+                const batch = db.batch();
+                chunk.forEach(doc => batch.delete(doc.ref));
+                chunks.push(batch.commit());
+            }
+            await Promise.all(chunks); // Tüm gönderi silme paketlerini çalıştır
+
+            // 3. ADIM: Diğer gönderilerdeki BEĞENİ ve YORUMLARI temizle
             const allPostsSnapshot = await db.collection('posts').get();
             const updatePromises = [];
 
@@ -245,17 +205,20 @@ document.addEventListener('DOMContentLoaded', function() {
                 let isModified = false;
                 let updates = {};
 
+                // A) Beğeni Silme (UID bazlı)
                 if (post.likedBy && post.likedBy.includes(user.uid)) {
                     updates.likedBy = firebase.firestore.FieldValue.arrayRemove(user.uid);
                     updates.likes = firebase.firestore.FieldValue.increment(-1);
                     isModified = true;
                 }
 
-                if (post.comments && post.comments.length > 0) {
-                    const initialLength = post.comments.length;
-                    const newComments = post.comments.filter(c => c.username !== dbUser.username);
-                    if (newComments.length !== initialLength) {
-                        updates.comments = newComments;
+                // B) Yorum Silme (Kullanıcı Adı bazlı)
+                if (post.comments && post.comments.length > 0 && currentUsername) {
+                    const originalLength = post.comments.length;
+                    const cleanComments = post.comments.filter(c => c.username !== currentUsername);
+                    
+                    if (cleanComments.length !== originalLength) {
+                        updates.comments = cleanComments;
                         isModified = true;
                     }
                 }
@@ -265,40 +228,44 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             });
 
-            await Promise.all(updatePromises);
+            await Promise.all(updatePromises); // Tüm güncellemeleri bekle
+
+            // 4. ADIM: Kullanıcı Profil Dokümanını Sil
             await db.collection('users').doc(user.uid).delete();
+
+            // 5. ADIM: Authentication Hesabını Sil
             await user.delete();
 
-            alert('Hesabınız başarıyla silindi.');
+            alert('Hesabınız ve tüm verileriniz başarıyla silindi.');
             localStorage.removeItem('currentUser');
             window.location.reload();
 
         } catch (error) {
             console.error("Silme hatası:", error);
-            deleteBtn.innerHTML = originalText;
-            deleteBtn.disabled = false;
+            if(deleteBtn) {
+                deleteBtn.innerHTML = originalText;
+                deleteBtn.disabled = false;
+            }
+            
             if (error.code === 'auth/requires-recent-login') {
-                alert('Güvenlik gereği hesabınızı silmek için yeniden giriş yapmanız gerekmektedir. Lütfen çıkış yapıp tekrar girdikten sonra deneyin.');
+                alert('Güvenlik gereği hesabınızı silmek için yeniden giriş yapmanız gerekiyor.');
+                auth.signOut().then(() => window.location.reload());
             } else {
-                alert('Bir hata oluştu: ' + error.message);
+                alert('Hata: ' + error.message);
             }
         }
     }
 
-    // --- PROFİL DÜZENLEME SİSTEMİ (BATCH UPDATE EKLENDİ) ---
     function setupProfileEditing() {
         const editBtn = document.getElementById('edit-account-btn');
         const saveBtn = document.getElementById('save-profile-btn');
         const modal = document.getElementById('edit-profile-modal');
         const removeBtn = document.getElementById('remove-profile-pic'); 
-        
         const inputUsername = document.getElementById('edit-username');
         const inputFullname = document.getElementById('edit-fullname');
         const inputBirthdate = document.getElementById('edit-birthdate');
-        
         const uploadInput = document.getElementById('edit-profile-upload');
         const previewDiv = document.getElementById('edit-avatar-preview');
-        
         let activeProfilePicData = null;
 
         const updatePreviewUI = (picData) => {
@@ -329,29 +296,18 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
 
-        // Profil resmini WebP'ye çevirir
         function convertToWebP(base64Str) {
             return new Promise((resolve) => {
                 let img = new Image();
                 img.src = base64Str;
                 img.onload = () => {
                     const canvas = document.createElement('canvas');
-                    const maxWidth = 500; 
-                    const maxHeight = 500;
-                    let width = img.width;
-                    let height = img.height;
-                    
-                    if (width > height) {
-                        if (width > maxWidth) { height *= maxWidth / width; width = maxWidth; }
-                    } else {
-                        if (height > maxHeight) { width *= maxHeight / height; height = maxHeight; }
-                    }
-                    
-                    canvas.width = width;
-                    canvas.height = height;
+                    const maxWidth = 500; const maxHeight = 500;
+                    let width = img.width; let height = img.height;
+                    if (width > height) { if (width > maxWidth) { height *= maxWidth / width; width = maxWidth; } } else { if (height > maxHeight) { width *= maxHeight / height; height = maxHeight; } }
+                    canvas.width = width; canvas.height = height;
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(img, 0, 0, width, height);
-                    
                     resolve(canvas.toDataURL('image/webp', 0.8));
                 };
                 img.onerror = () => resolve(base64Str);
@@ -382,15 +338,11 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
 
-        // --- PROFİL KAYDETME VE BATCH UPDATE ---
         if (saveBtn) {
             saveBtn.addEventListener('click', async function() {
                 const user = JSON.parse(localStorage.getItem('currentUser'));
                 if (!user) return;
-
-                // Eski kullanıcı adını sakla (Yorumları bulmak için lazım)
                 const oldUsername = user.username; 
-
                 const newUsername = inputUsername.value.trim();
                 const newFullname = inputFullname.value.trim();
                 const newBirthdate = inputBirthdate.value;
@@ -404,10 +356,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 let updateData = { username: newUsername, fullname: newFullname, birthdate: newBirthdate, profilePic: activeProfilePicData };
 
                 try {
-                    // 1. Kullanıcı Profilini Güncelle
-                    await db.collection("users").doc(user.uid).update(updateData);
-
-                    // 2. TÜM GÖNDERİLERİ ÇEK VE GÜNCELLE
+                    await db.collection("users").doc(user.uid).set(updateData, { merge: true });
+                    
                     const snapshot = await db.collection("posts").get();
                     const batch = db.batch();
                     let batchCount = 0;
@@ -416,103 +366,40 @@ document.addEventListener('DOMContentLoaded', function() {
                         const post = doc.data();
                         let isDirty = false;
                         let updates = {};
-
-                        // A) Gönderi sahibi ben isem
-                        if (post.userId === user.uid) {
-                            updates.username = newUsername;
-                            updates.userProfilePic = activeProfilePicData;
-                            isDirty = true;
+                        if (post.userId === user.uid) { 
+                            updates.username = newUsername; 
+                            updates.userProfilePic = activeProfilePicData; 
+                            isDirty = true; 
                         }
-
-                        // B) Yorumlarda benim adım varsa
                         if (post.comments && post.comments.length > 0) {
                             let commentsChanged = false;
                             const updatedComments = post.comments.map(comment => {
-                                if (comment.username === oldUsername) {
-                                    commentsChanged = true;
-                                    return { ...comment, username: newUsername };
+                                if (comment.username === oldUsername) { 
+                                    commentsChanged = true; 
+                                    return { ...comment, username: newUsername }; 
                                 }
                                 return comment;
                             });
-
-                            if (commentsChanged) {
-                                updates.comments = updatedComments;
-                                isDirty = true;
+                            if (commentsChanged) { 
+                                updates.comments = updatedComments; 
+                                isDirty = true; 
                             }
                         }
-
-                        if (isDirty) {
-                            batch.update(doc.ref, updates);
-                            batchCount++;
-                        }
+                        if (isDirty) { batch.update(doc.ref, updates); batchCount++; }
                     });
 
-                    if (batchCount > 0) {
-                        await batch.commit();
-                    }
+                    if (batchCount > 0) { await batch.commit(); }
 
-                    // 3. Local Storage Güncelle
-                    user.username = newUsername;
-                    user.fullname = newFullname;
-                    user.birthdate = newBirthdate;
+                    user.username = newUsername; 
+                    user.fullname = newFullname; 
+                    user.birthdate = newBirthdate; 
                     user.profilePic = activeProfilePicData;
                     localStorage.setItem('currentUser', JSON.stringify(user));
 
-                    // 4. Profil UI Güncelle
-                    const displayFullname = document.getElementById('account-fullname');
-                    const displayUsername = document.getElementById('account-username-display');
-                    const accountAvatar = document.getElementById('account-avatar');
-
-                    if (displayFullname) displayFullname.textContent = newFullname || newUsername;
-                    if (displayUsername) displayUsername.textContent = '@' + newUsername;
-                    
-                    if (accountAvatar) {
-                        accountAvatar.style.display = 'flex'; accountAvatar.style.alignItems = 'center'; accountAvatar.style.justifyContent = 'center';
-                        if (user.profilePic) {
-                            accountAvatar.style.background = `url('${user.profilePic}') center/cover no-repeat`;
-                            accountAvatar.innerHTML = '';
-                        } else {
-                            accountAvatar.style.background = '#e1e1e1';
-                            accountAvatar.innerHTML = '<i class="fas fa-user" style="font-size: 30px; color: #999;"></i>';
-                        }
-                    }
-
-                    // 5. DOM GÜNCELLEMESİ (Sayfa yenilemeden)
-                    
-                    // A) Kartlardaki İsimleri Güncelle
-                    document.querySelectorAll('.image-card').forEach(card => {
-                        // Kendi postum mu?
-                        if (card.querySelector('.delete-post-btn')) {
-                            const usernameEl = card.querySelector('.username');
-                            const captionStrong = card.querySelector('.card-content strong');
-                            const avatarEl = card.querySelector('.user-avatar');
-
-                            if (usernameEl) usernameEl.textContent = newUsername;
-                            if (captionStrong) captionStrong.textContent = newUsername;
-                            
-                            if (avatarEl) {
-                                if (activeProfilePicData) {
-                                    avatarEl.style.background = `url('${activeProfilePicData}') center/cover no-repeat`;
-                                    avatarEl.innerHTML = '';
-                                } else {
-                                    avatarEl.style.background = '#e1e1e1';
-                                    avatarEl.innerHTML = '<i class="fas fa-user" style="color: #999; font-size: 18px;"></i>';
-                                }
-                            }
-                        }
-                    });
-
-                    // B) Yorumlardaki İsimleri Güncelle
-                    document.querySelectorAll('.comment-user').forEach(userEl => {
-                        if (userEl.textContent === oldUsername) {
-                            userEl.textContent = newUsername;
-                            const commentItem = userEl.closest('.comment-item');
-                            if (commentItem) commentItem.classList.add('mine');
-                        }
-                    });
+                    showAccountInfo(user);
 
                     if (window.closeModal && modal) { window.closeModal(modal); } else if (modal) { modal.style.display = 'none'; }
-                    showNotification('Profil ve tüm içerikler güncellendi!', 'success');
+                    showNotification('Profil güncellendi!', 'success');
 
                 } catch (error) {
                     console.error("Güncelleme hatası: ", error);
@@ -525,35 +412,34 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // --- YENİ YORUM RENDER FONKSİYONU ---
     function renderAccountCommentsHTML(comments, currentUser) {
         if (!comments || comments.length === 0) return '<div class="empty-comments-msg" style="text-align:center; padding:20px; color:#8e8e8e;">Henüz yorum yok.</div>';
         
+        // --- YÖNETİCİ KONTROLÜ ---
+        const isAdmin = currentUser && currentUser.role === 'admin';
+
         return comments.map(c => {
             const isMine = currentUser && currentUser.username === c.username;
-            
-            // Kısaltma Mantığı
             const isLongText = c.text && c.text.length > 120;
             const textClass = isLongText ? 'comment-text collapsed' : 'comment-text';
             const readMoreBtn = isLongText ? '<button class="read-more-btn">Devamını oku</button>' : '';
             
-            const deleteBtnHtml = isMine ? `<button class="comment-delete-btn" data-id="${c.id}" style="position: absolute; top: 3px; right: 3px; border: none; background: none; color: #8e8e8e; cursor: pointer; font-size: 10px;"><i class="fas fa-trash"></i></button>` : '';
-
+            // Silme Yetkisi: Kendi yorumuysa VEYA Yöneticiyse
+            const canDelete = isMine || isAdmin;
+            
+            const deleteBtnHtml = canDelete ? `<button class="comment-delete-btn" data-id="${c.id}" style="position: absolute; top: 3px; right: 3px; border: none; background: none; color: #8e8e8e; cursor: pointer; font-size: 10px;"><i class="fas fa-trash"></i></button>` : '';
+            
             return `
                 <div class="comment-item ${isMine ? 'mine' : ''}">
                     ${deleteBtnHtml}
                     <div class="comment-header"><span class="comment-user">${c.username}</span></div>
                     <div class="${textClass}">${c.text}</div>
                     ${readMoreBtn}
-                    <div class="comment-footer">
-                        <div class="footer-left"></div>
-                        <div class="footer-right"><span class="comment-time">${timeAgo(c.timestamp)}</span></div>
-                    </div>
+                    <div class="comment-footer"><div class="footer-left"></div><div class="footer-right"><span class="comment-time">${timeAgo(c.timestamp)}</span></div></div>
                 </div>`;
         }).join('');
     }
 
-    // --- YORUM SİSTEMİ ---
     function setupCommentSystem() {
         const submitBtn = document.getElementById('submit-comment');
         const inputElement = document.getElementById('comment-input');
@@ -567,7 +453,6 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!user) return alert('Yorum yapmak için giriş yapmalısınız.');
 
             const newComment = { id: Date.now().toString(), username: user.username, text: text, timestamp: new Date().toISOString(), likes: 0, likedBy: [] };
-
             if(currentInput) currentInput.value = '';
             
             db.collection("posts").doc(currentDetailPostId).update({
@@ -576,7 +461,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 if(currentPostData) {
                     if(!currentPostData.comments) currentPostData.comments = [];
                     currentPostData.comments.push(newComment);
-                    
                     const commentsList = document.getElementById('comments-list');
                     if (commentsList) {
                         commentsList.innerHTML = renderAccountCommentsHTML(currentPostData.comments, user);
@@ -584,13 +468,9 @@ document.addEventListener('DOMContentLoaded', function() {
                         if(scrollContainer) setTimeout(() => { scrollContainer.scrollTop = scrollContainer.scrollHeight; }, 50);
                     }
                 }
-            }).catch(err => {
-                console.error("Yorum hatası:", err);
-                alert("Yorum gönderilemedi.");
-            });
+            }).catch(err => { console.error("Yorum hatası:", err); alert("Yorum gönderilemedi."); });
         };
 
-        // Event Delegation
         const commentsList = document.getElementById('comments-list');
         if (commentsList) {
             commentsList.addEventListener('click', function(e) {
@@ -598,51 +478,27 @@ document.addEventListener('DOMContentLoaded', function() {
                     e.preventDefault();
                     const textDiv = e.target.previousElementSibling; 
                     if (textDiv && textDiv.classList.contains('comment-text')) {
-                        if (textDiv.classList.contains('collapsed')) {
-                            textDiv.classList.remove('collapsed');
-                            e.target.textContent = 'Daha az';
-                        } else {
-                            textDiv.classList.add('collapsed');
-                            e.target.textContent = 'Devamını oku';
-                        }
+                        if (textDiv.classList.contains('collapsed')) { textDiv.classList.remove('collapsed'); e.target.textContent = 'Daha az'; } else { textDiv.classList.add('collapsed'); e.target.textContent = 'Devamını oku'; }
                     }
                 }
-
                 const delBtn = e.target.closest('.comment-delete-btn');
-                if (delBtn) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    deleteCommentInAccount(delBtn.dataset.id);
-                }
+                if (delBtn) { e.preventDefault(); e.stopPropagation(); deleteCommentInAccount(delBtn.dataset.id); }
             });
         }
-
-        if(submitBtn) {
-            const newBtn = submitBtn.cloneNode(true);
-            submitBtn.parentNode.replaceChild(newBtn, submitBtn);
-            newBtn.addEventListener('click', sendComment);
-        }
-        if(inputElement) {
-            const newInput = inputElement.cloneNode(true);
-            inputElement.parentNode.replaceChild(newInput, inputElement);
-            newInput.addEventListener('keypress', (e) => { if(e.key === 'Enter') sendComment(); });
-        }
+        if(submitBtn) { const newBtn = submitBtn.cloneNode(true); submitBtn.parentNode.replaceChild(newBtn, submitBtn); newBtn.addEventListener('click', sendComment); }
+        if(inputElement) { const newInput = inputElement.cloneNode(true); inputElement.parentNode.replaceChild(newInput, inputElement); newInput.addEventListener('keypress', (e) => { if(e.key === 'Enter') sendComment(); }); }
     }
 
     function deleteCommentInAccount(commentId) {
         if(!confirm("Yorumu silmek istiyor musunuz?")) return;
         if(!currentDetailPostId || !currentPostData) return;
-        
         const updatedComments = currentPostData.comments.filter(c => c.id !== commentId);
         const user = JSON.parse(localStorage.getItem('currentUser'));
-
         db.collection("posts").doc(currentDetailPostId).update({ comments: updatedComments })
             .then(() => { 
                 currentPostData.comments = updatedComments; 
                 const commentsList = document.getElementById('comments-list');
-                if (commentsList) {
-                    commentsList.innerHTML = renderAccountCommentsHTML(updatedComments, user);
-                }
+                if (commentsList) { commentsList.innerHTML = renderAccountCommentsHTML(updatedComments, user); }
             })
             .catch(err => alert("Silme hatası: " + err.message));
     }
@@ -651,6 +507,7 @@ document.addEventListener('DOMContentLoaded', function() {
         window.auth.onAuthStateChanged((user) => {
             if (user) {
                 db.collection("users").doc(user.uid).get().then((doc) => {
+                    // Veritabanından gelen veride 'role' alanı varsa localStorage'a da kaydedilir
                     const userData = doc.exists ? doc.data() : { username: user.email.split('@')[0], email: user.email, uid: user.uid };
                     userData.uid = user.uid;
                     localStorage.setItem('currentUser', JSON.stringify(userData));
@@ -667,6 +524,14 @@ document.addEventListener('DOMContentLoaded', function() {
         if (forgotPasswordForm) forgotPasswordForm.classList.remove('visible-flex');
         if (accountInfo) accountInfo.classList.remove('visible-block');
         if (accountTitle) accountTitle.textContent = 'Hesabınıza Giriş Yapın';
+        
+        // Hata mesajlarını gizle
+        const errorMsg = document.getElementById('login-error-msg');
+        if(errorMsg) errorMsg.style.display = 'none';
+        const forgotErrorMsg = document.getElementById('forgot-error-msg');
+        if(forgotErrorMsg) forgotErrorMsg.style.display = 'none';
+        const regErrorMsg = document.getElementById('register-error-msg');
+        if(regErrorMsg) regErrorMsg.style.display = 'none';
     }
 
     function showAccountInfo(user) {
@@ -678,12 +543,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const elName = document.getElementById('account-fullname');
         if(elName) elName.textContent = user.fullname || user.username;
-        
-        // --- EKLENEN KISIM: Kullanıcı adını mavi alana yazar ---
         const elUserDisplay = document.getElementById('account-username-display');
         if(elUserDisplay) elUserDisplay.textContent = '@' + user.username;
-        // --------------------------------------------------------
-
         const elEmail = document.getElementById('account-email');
         if(elEmail) elEmail.textContent = user.email;
         if (user.joinDate) {
@@ -694,21 +555,10 @@ document.addEventListener('DOMContentLoaded', function() {
         
         const avatarEl = document.getElementById('account-avatar');
         if (avatarEl) {
-            avatarEl.style.display = 'flex';
-            avatarEl.style.alignItems = 'center';
-            avatarEl.style.justifyContent = 'center';
-            
-            if (user.profilePic) {
-                avatarEl.style.background = `url('${user.profilePic}') center/cover no-repeat`;
-                avatarEl.style.border = '2px solid rgba(255,255,255,0.8)';
-                avatarEl.innerHTML = '';
-            } else {
-                avatarEl.style.background = '#e1e1e1';
-                avatarEl.style.border = '2px solid rgba(255,255,255,0.8)';
-                avatarEl.innerHTML = '<i class="fas fa-user" style="font-size: 30px; color: #999;"></i>';
-            }
+            avatarEl.style.display = 'flex'; avatarEl.style.alignItems = 'center'; avatarEl.style.justifyContent = 'center';
+            if (user.profilePic) { avatarEl.style.background = `url('${user.profilePic}') center/cover no-repeat`; avatarEl.style.border = '2px solid rgba(255,255,255,0.8)'; avatarEl.innerHTML = ''; }
+            else { avatarEl.style.background = '#e1e1e1'; avatarEl.style.border = '2px solid rgba(255,255,255,0.8)'; avatarEl.innerHTML = '<i class="fas fa-user" style="font-size: 30px; color: #999;"></i>'; }
         }
-
         loadAccountPosts(user.username);
     }
 
@@ -734,9 +584,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function createAccountPostElement(post) {
         const div = document.createElement('div');
         div.className = 'account-post-item';
-        let mediaHtml = post.imageType === 'none' || !post.image ? 
-            `<div class="account-post-image no-image-bg"><i class="fas fa-align-left" style="font-size:24px;"></i></div>` :
-            `<div class="account-post-image" style="background-image: url('${post.image}')"></div>`;
+        let mediaHtml = post.imageType === 'none' || !post.image ? `<div class="account-post-image no-image-bg"><i class="fas fa-align-left" style="font-size:24px;"></i></div>` : `<div class="account-post-image" style="background-image: url('${post.image}')"></div>`;
         div.innerHTML = `${mediaHtml}<div class="account-post-overlay"><div class="account-post-stats"><span class="stat-item"><i class="fas fa-heart"></i> ${post.likes||0}</span><span class="stat-item"><i class="fas fa-comment"></i> ${post.comments ? post.comments.length : 0}</span></div></div><button class="delete-post-btn-account" title="Sil"><i class="fas fa-trash"></i></button>`;
         div.querySelector('.delete-post-btn-account').addEventListener('click', (e) => { e.stopPropagation(); deletePost(post.id); });
         div.addEventListener('click', () => openPostDetail(post));
@@ -754,12 +602,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (discussionCaptionEl) discussionCaptionEl.innerHTML = `<strong>${post.username}</strong> ${post.caption || ''}`;
 
-        // Lazy/Batch Rendering ile yorumları yükle
         if (discussionCommentsList) {
             discussionCommentsList.innerHTML = renderAccountCommentsHTML(post.comments, currentUser);
-            
             const input = document.getElementById('comment-input'); if(input) input.value = '';
-            
             setTimeout(() => { 
                 const scrollContainer = document.querySelector('#discussion-modal .comments-section'); 
                 if(scrollContainer) scrollContainer.scrollTop = scrollContainer.scrollHeight; 
@@ -777,7 +622,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function updateStats(p, l) { const pe = document.getElementById('account-posts'), le = document.getElementById('account-likes'); if(pe) pe.textContent = p; if(le) le.textContent = l; }
     
-    // --- FORM SWITCH MANTIĞI ---
     function handleFormSwitch(e) {
         const type = e.target.getAttribute('data-form');
         
@@ -792,9 +636,16 @@ document.addEventListener('DOMContentLoaded', function() {
             if(loginForm) loginForm.classList.add('visible-flex'); 
             if(accountTitle) accountTitle.textContent = 'Hesabınıza Giriş Yapın'; 
         }
+        
+        // HATA MESAJLARINI TEMİZLE
+        const loginErrorMsg = document.getElementById('login-error-msg');
+        if(loginErrorMsg) loginErrorMsg.style.display = 'none';
+        const forgotErrorMsg = document.getElementById('forgot-error-msg');
+        if(forgotErrorMsg) forgotErrorMsg.style.display = 'none';
+        const regErrorMsg = document.getElementById('register-error-msg');
+        if(regErrorMsg) regErrorMsg.style.display = 'none';
     }
 
-    // --- LOGIN FONKSİYONU ---
     function handleLogin() {
         const emailInput = document.getElementById('account-username');
         const passwordInput = document.getElementById('account-password');
@@ -802,7 +653,11 @@ document.addEventListener('DOMContentLoaded', function() {
         const p = passwordInput?.value;
 
         if (!e || !p) {
-            showNotification('Lütfen bilgileri girin.', 'error');
+            const errorEl = document.getElementById('login-error-msg');
+            if (errorEl) {
+                errorEl.textContent = 'Lütfen bilgileri girin.';
+                errorEl.style.display = 'flex';
+            } else { showNotification('Lütfen bilgileri girin.', 'error'); }
             return;
         }
 
@@ -829,7 +684,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     msg = "Çok fazla deneme yaptınız. Lütfen biraz bekleyin.";
                 }
 
-                showNotification(msg, 'error');
+                const errorEl = document.getElementById('login-error-msg');
+                if (errorEl) {
+                    errorEl.textContent = msg;
+                    errorEl.style.display = 'flex';
+                } else {
+                    showNotification(msg, 'error');
+                }
 
                 if(passwordInput) {
                     passwordInput.classList.add('error-shake');
@@ -838,13 +699,28 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     }
 
-    // --- ŞİFRE SIFIRLAMA FONKSİYONU (GÜNCELLENMİŞ) ---
+    // --- ŞİFRE SIFIRLAMA FONKSİYONU ---
     function handlePasswordReset() {
         const emailInput = document.getElementById('forgot-email');
         const email = emailInput ? emailInput.value.trim() : '';
+        const errorEl = document.getElementById('forgot-error-msg');
         
+        const showError = (msg) => {
+            if (errorEl) {
+                errorEl.textContent = msg;
+                errorEl.style.display = 'flex';
+                
+                if(emailInput) {
+                    emailInput.classList.add('error-shake');
+                    setTimeout(() => emailInput.classList.remove('error-shake'), 500);
+                }
+            } else {
+                showNotification(msg, 'error');
+            }
+        };
+
         if (!email) {
-            showNotification('Lütfen e-posta adresinizi girin.', 'error');
+            showError('Lütfen e-posta adresinizi girin.');
             return;
         }
 
@@ -853,23 +729,21 @@ document.addEventListener('DOMContentLoaded', function() {
         
         btn.innerHTML = 'Kontrol ediliyor...';
         btn.disabled = true;
+        if(errorEl) errorEl.style.display = 'none';
 
-        // 1. Veritabanı kontrolü: Önce bu e-postanın kayıtlı olup olmadığına bak
         db.collection('users').where('email', '==', email).get()
             .then(snapshot => {
-                // Eğer kayıt yoksa kullanıcıya bildir ve işlemi durdur
                 if (snapshot.empty) {
-                    showNotification('Bu e-posta adresiyle kayıtlı bir hesap bulunamadı.', 'error');
+                    showError('Bu e-posta adresiyle kayıtlı bir hesap bulunamadı.');
                     btn.innerHTML = originalText;
                     btn.disabled = false;
                     return;
                 }
 
-                // 2. Kullanıcı varsa Firebase şifre sıfırlama mailini gönder
                 btn.innerHTML = 'Gönderiliyor...';
                 auth.sendPasswordResetEmail(email)
                     .then(() => {
-                        showNotification('Sıfırlama bağlantısı e-posta adresinize gönderildi.', 'success');
+                        showNotification('Sıfırlama bağlantısı gönderildi!', 'success');
                         setTimeout(() => {
                             if(forgotPasswordForm) forgotPasswordForm.classList.remove('visible-flex');
                             if(loginForm) loginForm.classList.add('visible-flex');
@@ -878,13 +752,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     })
                     .catch((error) => {
                         let msg = "Bir hata oluştu.";
-                        if (error.code === 'auth/invalid-email') {
-                            msg = "Geçersiz e-posta adresi formatı.";
-                        } else if (error.code === 'auth/user-not-found') {
-                            // Buraya düşmesi zor ama yine de ekleyelim
-                            msg = "Kullanıcı bulunamadı.";
-                        }
-                        showNotification(msg, 'error');
+                        if (error.code === 'auth/invalid-email') msg = "Geçersiz e-posta adresi formatı.";
+                        showError(msg);
                     })
                     .finally(() => {
                         btn.innerHTML = originalText;
@@ -893,17 +762,88 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .catch(error => {
                 console.error("Hata:", error);
-                showNotification('Bağlantı hatası, lütfen tekrar deneyin.', 'error');
+                showError('Bağlantı hatası, lütfen tekrar deneyin.');
                 btn.innerHTML = originalText;
                 btn.disabled = false;
             });
     }
 
+    // --- YENİ KAYIT FONKSİYONU (UI DÜZELTİLDİ) ---
     function handleRegister() {
-        const e = document.getElementById('register-email')?.value, p = document.getElementById('register-password')?.value, u = document.getElementById('register-username')?.value;
-        if (!e || !p || !u) return alert('Tüm alanları doldurun.');
-        auth.createUserWithEmailAndPassword(e, p).then((c) => { return db.collection("users").doc(c.user.uid).set({ username: u, email: e, uid: c.user.uid, joinDate: new Date().toISOString() }); }).catch(err => alert('Kayıt Hatası: ' + err.message));
+        const e = document.getElementById('register-email')?.value,
+              p = document.getElementById('register-password')?.value,
+              u = document.getElementById('register-username')?.value;
+        
+        // Önceki hatayı temizle
+        let errorBox = document.getElementById('register-error-msg');
+        if(errorBox) errorBox.style.display = 'none';
+
+        if (!e || !p || !u) {
+            showRegisterError('Lütfen tüm alanları doldurun.');
+            return;
+        }
+
+        const btn = document.getElementById('account-register-btn');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = 'Kayıt Olunuyor...';
+        btn.disabled = true;
+
+        auth.createUserWithEmailAndPassword(e, p).then((c) => { 
+            return db.collection("users").doc(c.user.uid).set({ 
+                username: u, 
+                email: e, 
+                uid: c.user.uid, 
+                joinDate: new Date().toISOString() 
+            }); 
+        })
+        .then(() => {
+            // Başarılı ise yönlendirme veya giriş authStateChanged ile yapılır
+        })
+        .catch(err => {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+
+            let msg = "Kayıt işlemi başarısız.";
+            // Firebase Hata Kodları Çevirisi
+            if (err.code === 'auth/email-already-in-use') {
+                msg = "Bu e-posta adresi zaten kullanımda. Lütfen giriş yapın.";
+            } else if (err.code === 'auth/weak-password') {
+                msg = "Şifre çok zayıf (en az 6 karakter olmalı).";
+            } else if (err.code === 'auth/invalid-email') {
+                msg = "Geçersiz e-posta adresi formatı.";
+            } else if (err.code === 'auth/operation-not-allowed') {
+                msg = "Kayıt işlemi şu an kapalı.";
+            }
+
+            showRegisterError(msg);
+        });
     }
+
+    function showRegisterError(msg) {
+        let errorBox = document.getElementById('register-error-msg');
+        // Eğer HTML'de yoksa JS ile oluştur ve formun başına ekle
+        if (!errorBox) {
+            errorBox = document.createElement('div');
+            errorBox.id = 'register-error-msg';
+            errorBox.className = 'error-message';
+            errorBox.style.display = 'none';
+            // Yaş uyarısından hemen sonraya ekleyelim
+            const ageWarning = document.getElementById('age-warning');
+            if (ageWarning) {
+                ageWarning.parentNode.insertBefore(errorBox, ageWarning.nextSibling);
+            } else {
+                // Yaş uyarısı yoksa formun en başına
+                const form = document.getElementById('register-account-form');
+                form.insertBefore(errorBox, form.firstChild);
+            }
+        }
+        
+        errorBox.textContent = msg;
+        errorBox.style.display = 'flex';
+        errorBox.classList.add('error-shake');
+        setTimeout(() => errorBox.classList.remove('error-shake'), 500);
+    }
+    
     function handleAddNewPost() { const m = document.getElementById('add-post-modal'); if (m && window.openModal) window.openModal(m); else if(m) m.style.display = 'flex'; }
     function initializeBirthdateSelects() {
         const d=document.getElementById('register-birthday'); if(!d)return; d.innerHTML='<option value="">Gün</option>'; for(let i=1;i<=31;i++){let o=document.createElement('option');o.value=i;o.text=i;d.add(o);}
