@@ -1,4 +1,4 @@
-// feed.js - GOOGLE OTO-DOLDURMA KESİN ÇÖZÜM (READONLY HACK) + PERFORMANCE
+// feed.js - GOOGLE OTO-DOLDURMA KESİN ÇÖZÜM (READONLY HACK) + PERFORMANCE + ADMIN MODU
 document.addEventListener('DOMContentLoaded', function() {
     // --- DİNAMİK CSS STİLLERİ ---
     const style = document.createElement('style');
@@ -245,7 +245,11 @@ document.addEventListener('DOMContentLoaded', function() {
         div.setAttribute('data-post-id', post.id);
         div.style.animation = "fadeInUp 0.5s ease backwards";
         
+        // --- YÖNETİCİ KONTROLÜ ---
+        const isAdmin = currentUser && currentUser.role === 'admin';
         const isOwnPost = currentUser && currentUser.username === post.username;
+        const canDelete = isOwnPost || isAdmin; // Yöneticiyse veya kendi postuysa silebilir
+
         const commentCount = post.comments ? post.comments.length : 0;
         const isLikedByMe = post.likedBy && currentUser && post.likedBy.includes(currentUser.uid);
         const safeLikes = Math.max(0, post.likes || 0);
@@ -275,15 +279,20 @@ document.addEventListener('DOMContentLoaded', function() {
             avatarContent = `<i class="fas fa-user" style="color: #999; font-size: 18px;" aria-hidden="true"></i>`;
         }
 
-        // --- GÜNCELLEME: READONLY HACK + FORM WRAPPER ---
+        // --- GÜNCELLEME: YÖNETİCİ ROZETİ VE SİLME BUTONU GÜNCELLEMESİ ---
+        const adminBadge = post.role === 'admin' ? '<i class="fas fa-check-circle" style="color:var(--primary); margin-left:4px;" title="Yönetici"></i>' : '';
+
         div.innerHTML = `
             <div class="card-header">
                 <div class="user-avatar" style="${avatarStyle}" aria-label="${post.username} profil resmi">${avatarContent}</div>
                 <div class="user-info">
-                    <div class="username">${post.username || 'Anonim'}</div>
+                    <div class="username" style="display:flex; align-items:center;">
+                        ${post.username || 'Anonim'}
+                        ${adminBadge}
+                    </div>
                     <div class="post-time">${timeAgo(post.timestamp)}</div>
                 </div>
-                ${isOwnPost ? `<button class="delete-post-btn" aria-label="Gönderiyi sil"><i class="fas fa-trash" aria-hidden="true"></i></button>` : ''}
+                ${canDelete ? `<button class="delete-post-btn" aria-label="Gönderiyi sil"><i class="fas fa-trash" aria-hidden="true"></i></button>` : ''}
             </div>
             ${contentHtml}
             <div class="card-content">
@@ -398,10 +407,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function renderCommentsHTML(comments, currentUser) {
         if (!comments || comments.length === 0) return '<div style="text-align:center; color:var(--text-light); font-size:13px; padding:20px;">Henüz yorum yok. İlk yorumu sen yap!</div>';
+        
+        // --- YÖNETİCİ KONTROLÜ (YORUMLAR İÇİN) ---
+        const isAdmin = currentUser && currentUser.role === 'admin';
+
         return comments.map(c => {
             const isMyComment = currentUser && currentUser.username === c.username;
             const isLiked = c.likedBy && currentUser && c.likedBy.includes(currentUser.uid);
             const isLongText = c.text && c.text.length > 120;
+            
+            // Silme Yetkisi: Kendi yorumuysa VEYA Yöneticiyse
+            const canDelete = isMyComment || isAdmin;
+
             return `
                 <div class="comment-item ${isMyComment ? 'mine' : ''}">
                     <div class="comment-header"><span class="comment-user">${c.username}</span></div>
@@ -409,7 +426,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     ${isLongText ? '<button class="read-more-btn">Devamını oku</button>' : ''}
                     <div class="comment-footer">
                         <div class="footer-left"><button class="comment-like-btn ${isLiked ? 'active' : ''}" data-id="${c.id}"><i class="${isLiked ? 'fas' : 'far'} fa-heart"></i> ${c.likes > 0 ? c.likes : ''}</button></div>
-                        <div class="footer-right">${isMyComment ? `<button class="comment-delete-btn" data-id="${c.id}"><i class="fas fa-trash"></i></button>` : ''}<span class="comment-time">${timeAgo(c.timestamp)}</span></div>
+                        <div class="footer-right">${canDelete ? `<button class="comment-delete-btn" data-id="${c.id}"><i class="fas fa-trash"></i></button>` : ''}<span class="comment-time">${timeAgo(c.timestamp)}</span></div>
                     </div>
                 </div>`;
         }).join('');
@@ -543,7 +560,20 @@ document.addEventListener('DOMContentLoaded', function() {
             
             sharePostBtn.textContent = 'Paylaşılıyor...'; sharePostBtn.disabled = true;
             
-            const newPost = { username: user.username, userId: user.uid, caption: caption, image: selectedImage, imageType: selectedImage ? 'uploaded' : 'none', timestamp: new Date().toISOString(), likes: 0, likedBy: [], comments: [], userProfilePic: user.profilePic || null };
+            // --- GÜNCELLEME: Rolü de gönderiye ekliyoruz (Rozet için) ---
+            const newPost = { 
+                username: user.username, 
+                userId: user.uid, 
+                role: user.role || 'user', // <--- YÖNETİCİ ROZETİ İÇİN KRİTİK
+                caption: caption, 
+                image: selectedImage, 
+                imageType: selectedImage ? 'uploaded' : 'none', 
+                timestamp: new Date().toISOString(), 
+                likes: 0, 
+                likedBy: [], 
+                comments: [], 
+                userProfilePic: user.profilePic || null 
+            };
             
             window.db.collection("posts").add(newPost).then((docRef) => {
                 newPost.id = docRef.id; rawPosts.unshift(newPost);
