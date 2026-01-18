@@ -1,4 +1,4 @@
-// feed.js - GOOGLE OTO-DOLDURMA KESİN ÇÖZÜM (READONLY HACK) + PERFORMANCE + ADMIN MODU
+// feed.js - GOOGLE OTO-DOLDURMA KESİN ÇÖZÜM (READONLY HACK) + PERFORMANCE + ADMIN MODU + MULTI-IMAGE SLIDER
 document.addEventListener('DOMContentLoaded', function() {
     // --- DİNAMİK CSS STİLLERİ ---
     const style = document.createElement('style');
@@ -39,7 +39,8 @@ document.addEventListener('DOMContentLoaded', function() {
     let feedObserver = null;    
     let viewMode = 'paginated'; 
 
-    let selectedImage = null;
+    // GÜNCELLEME: Tekli görsel yerine dizi kullanıyoruz
+    let selectedImages = []; 
     let openDiscussionIds = new Set(); 
     
     let activeFilters = {
@@ -248,25 +249,49 @@ document.addEventListener('DOMContentLoaded', function() {
         // --- YÖNETİCİ KONTROLÜ ---
         const isAdmin = currentUser && currentUser.role === 'admin';
         const isOwnPost = currentUser && currentUser.username === post.username;
-        const canDelete = isOwnPost || isAdmin; // Yöneticiyse veya kendi postuysa silebilir
+        const canDelete = isOwnPost || isAdmin; 
 
         const commentCount = post.comments ? post.comments.length : 0;
         const isLikedByMe = post.likedBy && currentUser && post.likedBy.includes(currentUser.uid);
         const safeLikes = Math.max(0, post.likes || 0);
 
         let contentHtml = '';
-        if (post.imageType === 'none' || !post.image) {
+        
+        // GÜNCELLEME: Çoklu resim kontrolü
+        const hasMultipleImages = post.images && post.images.length > 1;
+        const displayImage = (post.images && post.images.length > 0) ? post.images[0] : post.image;
+
+        if (post.imageType === 'none' || !displayImage) {
             contentHtml = `
                 <div class="card-image no-image-post" style="padding: 40px 20px; background: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%); display:flex; align-items:center; justify-content:center; flex-direction:column; min-height: 250px;">
                     <i class="fas fa-quote-left" style="font-size:32px; color:white; margin-bottom:15px; opacity:0.8;" aria-hidden="true"></i>
                     <div style="color:white; font-weight:600; font-size:18px; text-align:center; text-shadow:0 2px 4px rgba(0,0,0,0.1);">Düşünce Paylaşımı</div>
                 </div>`;
+        } else if (hasMultipleImages) {
+            // --- SLIDER YAPISI ---
+            const slidesHtml = post.images.map(imgSrc => `
+                <div class="slider-slide">
+                     <img src="${imgSrc}" loading="lazy" alt="Post görseli">
+                </div>
+            `).join('');
+
+            const dotsHtml = post.images.map((_, i) => `
+                <div class="slider-dot ${i === 0 ? 'active' : ''}" data-index="${i}"></div>
+            `).join('');
+
+            contentHtml = `
+                <div class="post-media-container slider-container" id="slider-${post.id}">
+                    <div class="slider-track">${slidesHtml}</div>
+                    <div class="slider-dots">${dotsHtml}</div>
+                    <div class="slider-arrow slider-prev"><i class="fas fa-chevron-left"></i></div>
+                    <div class="slider-arrow slider-next"><i class="fas fa-chevron-right"></i></div>
+                </div>`;
         } else {
-            // PERFORMANS: fetchpriority eklendi (İlk resim öncelikli indirilir)
+            // TEK RESİM (Klasik Yapı)
             contentHtml = `
                 <div class="post-media-container">
-                    <div class="media-blur-bg" style="background-image: url('${post.image}')"></div>
-                    <img src="${post.image}" class="card-image" loading="${isPriority ? 'eager' : 'lazy'}" ${isPriority ? 'fetchpriority="high"' : ''} decoding="async" alt="Gönderi resmi: ${post.caption || 'Başlıksız'}">
+                    <div class="media-blur-bg" style="background-image: url('${displayImage}')"></div>
+                    <img src="${displayImage}" class="card-image" loading="${isPriority ? 'eager' : 'lazy'}" ${isPriority ? 'fetchpriority="high"' : ''} decoding="async" alt="Gönderi resmi: ${post.caption || 'Başlıksız'}">
                 </div>`;
         }
 
@@ -279,7 +304,6 @@ document.addEventListener('DOMContentLoaded', function() {
             avatarContent = `<i class="fas fa-user" style="color: #999; font-size: 18px;" aria-hidden="true"></i>`;
         }
 
-        // --- GÜNCELLEME: YÖNETİCİ ROZETİ VE SİLME BUTONU GÜNCELLEMESİ ---
         const adminBadge = post.role === 'admin' ? '<i class="fas fa-check-circle" style="color:var(--primary); margin-left:4px;" title="Yönetici"></i>' : '';
 
         div.innerHTML = `
@@ -333,11 +357,17 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
         `;
 
-        const postImage = div.querySelector('.card-image');
-        if (postImage && post.imageType !== 'none') {
-            postImage.addEventListener('click', (e) => {
-                e.stopPropagation(); e.preventDefault(); openFullscreenImage(post.image);
-            });
+        // SLIDER EVENTLERİ (Varsa başlat)
+        if (hasMultipleImages) {
+            setTimeout(() => window.setupPostSlider(div.querySelector(`#slider-${post.id}`)), 0);
+        } else {
+            // Tek resim için tam ekran özelliği
+            const postImage = div.querySelector('.card-image');
+            if (postImage && post.imageType !== 'none') {
+                postImage.addEventListener('click', (e) => {
+                    e.stopPropagation(); e.preventDefault(); openFullscreenImage(post.image);
+                });
+            }
         }
         
         const delBtn = div.querySelector('.delete-post-btn');
@@ -408,7 +438,6 @@ document.addEventListener('DOMContentLoaded', function() {
     function renderCommentsHTML(comments, currentUser) {
         if (!comments || comments.length === 0) return '<div style="text-align:center; color:var(--text-light); font-size:13px; padding:20px;">Henüz yorum yok. İlk yorumu sen yap!</div>';
         
-        // --- YÖNETİCİ KONTROLÜ (YORUMLAR İÇİN) ---
         const isAdmin = currentUser && currentUser.role === 'admin';
 
         return comments.map(c => {
@@ -416,7 +445,6 @@ document.addEventListener('DOMContentLoaded', function() {
             const isLiked = c.likedBy && currentUser && c.likedBy.includes(currentUser.uid);
             const isLongText = c.text && c.text.length > 120;
             
-            // Silme Yetkisi: Kendi yorumuysa VEYA Yöneticiyse
             const canDelete = isMyComment || isAdmin;
 
             return `
@@ -556,18 +584,23 @@ document.addEventListener('DOMContentLoaded', function() {
             const caption = document.getElementById('post-caption').value;
             const user = JSON.parse(localStorage.getItem('currentUser'));
             if (!user) { if(typeof showNotification==='function') showNotification('Giriş yapmalısınız!', 'error'); return; }
-            if (!selectedImage && !caption) { if(typeof showNotification==='function') showNotification('Görsel veya açıklama ekleyin.', 'error'); return; }
+            if (selectedImages.length === 0 && !caption) { if(typeof showNotification==='function') showNotification('Görsel veya açıklama ekleyin.', 'error'); return; }
             
             sharePostBtn.textContent = 'Paylaşılıyor...'; sharePostBtn.disabled = true;
             
-            // --- GÜNCELLEME: Rolü de gönderiye ekliyoruz (Rozet için) ---
+            // YENİ YAPI: Hem tekli 'image' (uyumluluk için ilk resim) hem 'images' dizisi gönderiyoruz
+            const mainImage = selectedImages.length > 0 ? selectedImages[0] : null;
+            
             const newPost = { 
                 username: user.username, 
                 userId: user.uid, 
-                role: user.role || 'user', // <--- YÖNETİCİ ROZETİ İÇİN KRİTİK
+                role: user.role || 'user', 
                 caption: caption, 
-                image: selectedImage, 
-                imageType: selectedImage ? 'uploaded' : 'none', 
+                
+                image: mainImage, // İlk resim
+                images: selectedImages, // Tüm resimler
+                
+                imageType: selectedImages.length > 0 ? 'uploaded' : 'none', 
                 timestamp: new Date().toISOString(), 
                 likes: 0, 
                 likedBy: [], 
@@ -581,25 +614,67 @@ document.addEventListener('DOMContentLoaded', function() {
                 if(imageFeed.firstChild) imageFeed.insertBefore(card, imageFeed.firstChild); else imageFeed.appendChild(card);
                 if(addPostModal) { addPostModal.style.display = 'none'; document.body.style.overflow = 'auto'; }
                 if (typeof window.switchTab === 'function') window.switchTab('home');
-                document.getElementById('post-caption').value = ''; selectedImage = null;
+                
+                // Form Temizliği
+                document.getElementById('post-caption').value = ''; 
+                selectedImages = [];
+                const gallery = document.getElementById('preview-gallery');
+                if(gallery) gallery.remove();
                 if(imagePreview) imagePreview.style.display = 'none';
+                document.querySelector('.file-upload-text').textContent = 'Görsel seçmek için dokun';
+                
                 sharePostBtn.textContent = 'Paylaş'; sharePostBtn.disabled = false;
                 if(typeof showNotification==='function') showNotification('Paylaşıldı!', 'success');
             }).catch((error) => { console.error("Paylaşım hatası:", error); sharePostBtn.textContent = 'Paylaş'; sharePostBtn.disabled = false; });
         });
     }
 
+    // GÜNCELLEME: ÇOKLU RESİM SEÇİMİ VE GALERİ ÖNİZLEME
     if (imageUploadArea) {
         imageUploadArea.addEventListener('click', () => {
-            const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*';
-            input.onchange = (e) => {
-                if (e.target.files && e.target.files[0]) {
-                    const reader = new FileReader();
-                    if(imagePreview) { imagePreview.style.display = 'block'; imagePreview.style.opacity = '0.5'; }
-                    reader.onload = (ev) => {
-                        compressImage(ev.target.result).then(compressedBase64 => { selectedImage = compressedBase64; if(imagePreview) { imagePreview.style.opacity = '1'; imagePreview.src = compressedBase64; } });
-                    };
-                    reader.readAsDataURL(e.target.files[0]);
+            const input = document.createElement('input'); 
+            input.type = 'file'; 
+            input.accept = 'image/*';
+            input.multiple = true; // Çoklu seçim aktif
+            
+            input.onchange = async (e) => {
+                if (e.target.files && e.target.files.length > 0) {
+                    selectedImages = []; // Sıfırla
+                    const files = Array.from(e.target.files).slice(0, 10); // Max 10 resim
+                    
+                    // Önizleme alanını hazırla
+                    if(imagePreview) {
+                        imagePreview.style.display = 'none'; // Tekli imajı gizle
+                        // Varsa eski galeriyi temizle
+                        const oldGallery = document.getElementById('preview-gallery');
+                        if(oldGallery) oldGallery.remove();
+                    }
+
+                    // Yeni galeri div'i oluştur
+                    const galleryDiv = document.createElement('div');
+                    galleryDiv.id = 'preview-gallery';
+                    galleryDiv.style.cssText = "display:flex; gap:10px; overflow-x:auto; padding:10px; white-space:nowrap; width:100%;";
+                    imageUploadArea.appendChild(galleryDiv);
+
+                    let loadedCount = 0;
+                    for (let file of files) {
+                        const reader = new FileReader();
+                        reader.onload = (ev) => {
+                            compressImage(ev.target.result).then(compressedBase64 => {
+                                selectedImages.push(compressedBase64);
+                                
+                                // Küçük önizleme resmi ekle
+                                const img = document.createElement('img');
+                                img.src = compressedBase64;
+                                img.style.cssText = "min-width:80px; width:80px; height:80px; object-fit:cover; border-radius:8px; border:1px solid var(--border);";
+                                galleryDiv.appendChild(img);
+                                
+                                loadedCount++;
+                                document.querySelector('.file-upload-text').textContent = `${loadedCount} görsel seçildi`;
+                            });
+                        };
+                        reader.readAsDataURL(file);
+                    }
                 }
             };
             input.click();
@@ -661,7 +736,8 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
-
+    
+    // Zoom/Pinch event listenerları...
     if (fullscreenContainer && fullscreenImg) {
         let lastTap = 0, isPinching = false, initialPinchDistance = 0, initialScale = 1;
         let initialPinchCenter = { x: 0, y: 0 }, initialPoint = { x: 0, y: 0 };
@@ -758,7 +834,82 @@ document.addEventListener('DOMContentLoaded', function() {
         fullscreenContainer.addEventListener('mouseup', stopDrag);
         fullscreenContainer.addEventListener('mouseleave', stopDrag);
     }
+    
+    // --- GLOBAL: Tam Ekran Fonksiyonunu Dışa Aç ---
+    window.openFullscreenImage = openFullscreenImage;
 
     window.loadImageFeed = initFeed;
     initFeed();
 });
+
+// --- GLOBAL SLIDER FONKSİYONU ---
+// Bu fonksiyon hem Feed'de hem de Account modalında kullanılacak
+window.setupPostSlider = function(container) {
+    if (!container) return;
+    const track = container.querySelector('.slider-track');
+    const slides = container.querySelectorAll('.slider-slide');
+    const dots = container.querySelectorAll('.slider-dot');
+    const prevBtn = container.querySelector('.slider-prev');
+    const nextBtn = container.querySelector('.slider-next');
+    
+    if(!track || slides.length === 0) return;
+
+    let currentIndex = 0;
+    const totalSlides = slides.length;
+    let startX = 0;
+    let isDragging = false;
+
+    function updateSlider() {
+        track.style.transform = `translateX(-${currentIndex * 100}%)`;
+        dots.forEach((dot, index) => {
+            if(dot) dot.classList.toggle('active', index === currentIndex);
+        });
+    }
+
+    // Ok Tıklamaları
+    if(prevBtn) prevBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (currentIndex > 0) currentIndex--;
+        updateSlider();
+    });
+    
+    if(nextBtn) nextBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (currentIndex < totalSlides - 1) currentIndex++;
+        updateSlider();
+    });
+
+    // Dokunmatik Kaydırma (Swipe)
+    container.addEventListener('touchstart', (e) => {
+        startX = e.touches[0].clientX;
+        isDragging = true;
+    }, { passive: true });
+
+    container.addEventListener('touchend', (e) => {
+        if (!isDragging) return;
+        const endX = e.changedTouches[0].clientX;
+        const diff = startX - endX;
+
+        if (Math.abs(diff) > 50) { // 50px eşik değeri
+            if (diff > 0 && currentIndex < totalSlides - 1) {
+                currentIndex++; // Sola kaydır (İleri)
+            } else if (diff < 0 && currentIndex > 0) {
+                currentIndex--; // Sağa kaydır (Geri)
+            }
+        }
+        updateSlider();
+        isDragging = false;
+    });
+    
+    // Görsellere tıklayınca tam ekran açma (Hala çalışsın diye)
+    slides.forEach((slide, index) => {
+        const img = slide.querySelector('img');
+        if(img) {
+            img.addEventListener('click', (e) => {
+                e.stopPropagation();
+                // openFullscreenImage fonksiyonu global window altında olmalı
+                if(window.openFullscreenImage) window.openFullscreenImage(img.src);
+            });
+        }
+    });
+};
