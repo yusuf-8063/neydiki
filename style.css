@@ -1,4 +1,4 @@
-/* style.css - FINAL: OTO YÜKSEKLİK VE MAX ALAN AYARLI */
+/* style.css - FINAL: OTO YÜKSEKLİK VE MAX ALAN AYARLI + MULTI-IMAGE SLIDER */
 
 /* --- TEMEL AYARLAR --- */
 * { 
@@ -670,5 +670,150 @@ body {
     .image-card, .floating-nav, .top-nav {
         transform: translateZ(0); 
         will-change: transform; 
+    }
+}
+
+/* --- MULTI-IMAGE SLIDER (CAROUSEL) --- */
+.slider-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-color: var(--surface);
+}
+
+.slider-track {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.slider-slide {
+    min-width: 100%;
+    width: 100%;
+    height: auto;
+    object-fit: contain;
+    /* Mobilde resimlerin ortalanması için */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.slider-slide img {
+    width: 100%;
+    height: auto;
+    max-height: 60vh;
+    object-fit: contain;
+    display: block;
+}
+
+/* Noktalar (Dots) */
+.slider-dots {
+    position: absolute;
+    bottom: 15px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 6px;
+    z-index: 5;
+    background: rgba(0, 0, 0, 0.3);
+    padding: 4px 8px;
+    border-radius: 10px;
+    backdrop-filter: blur(4px);
+}
+
+.slider-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.4);
+    transition: all 0.2s ease;
+}
+
+.slider-dot.active {
+    background-color: #fff;
+    transform: scale(1.2);
+}
+
+/* --- SLIDER OKLARI GÜNCELLEMESİ (KARANLIK MOD & MOBİL UYUMLU) --- */
+.slider-arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 34px;
+    height: 34px;
+    
+    /* Varsayılan (Aydınlık Mod) */
+    background: rgba(255, 255, 255, 0.9);
+    color: #000000 !important; /* Zorunlu Siyah İkon */
+    
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 5;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    font-size: 14px;
+    opacity: 0.85; /* Mobilde görünür */
+    transition: all 0.2s ease;
+    border: 1px solid rgba(0,0,0,0.05);
+}
+
+/* Masaüstü Hover Efekti */
+@media (hover: hover) {
+    .slider-arrow:hover {
+        opacity: 1;
+        transform: translateY(-50%) scale(1.1);
+        background: #ffffff;
+        box-shadow: 0 6px 15px rgba(0,0,0,0.3);
+    }
+}
+
+/* Karanlık Mod Ayarları */
+[data-theme="dark"] .slider-arrow {
+    background: rgba(45, 45, 45, 0.9);
+    color: #ffffff !important; /* Zorunlu Beyaz İkon */
+    border-color: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+}
+
+[data-theme="dark"] .slider-arrow:hover {
+    background: rgba(60, 60, 60, 1);
+    color: #fff !important;
+}
+
+.slider-prev { left: 10px; }
+.slider-next { right: 10px; }
+
+/* Hesap Grid'i için Çoklu Resim İkonu */
+.multi-image-icon {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    color: white;
+    font-size: 16px;
+    z-index: 3;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+}
+
+/* --- MOBIL SLIDER DÜZELTMESİ (SON EKLEME) --- */
+/* Bu bölüm, mobil cihazlarda çoklu resim alanının yüksekliğini sıfırlar ve içeriğe göre otomatik ayarlanmasını sağlar.
+   Böylece alttaki butonlar (beğeni, yorum) görünür hale gelir. */
+@media (max-width: 768px) {
+    .slider-container {
+        height: auto !important; /* 100% yükseklik yerine otomatik yükseklik */
+        min-height: 250px; /* Minimum yükseklik koruması */
+    }
+    
+    .slider-slide {
+        height: auto !important;
+    }
+    
+    .slider-slide img {
+        max-height: 600px; /* Kartın maksimum yüksekliği ile uyumlu */
+        width: 100%;
+        object-fit: contain;
     }
 }
