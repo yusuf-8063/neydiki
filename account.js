@@ -1,4 +1,4 @@
-// account.js - GÜVENLİ VE TAM SİLME ÖZELLİKLİ FİNAL VERSİYON + ADMIN YETKİLERİ
+// account.js - GÜVENLİ VE TAM SİLME ÖZELLİKLİ FİNAL VERSİYON + ADMIN YETKİLERİ + MULTI-IMAGE SLIDER
 document.addEventListener('DOMContentLoaded', function() {
     // --- ELEMENTLER ---
     const loginForm = document.getElementById('login-account-form');
@@ -169,21 +169,19 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         try {
-            // 1. ADIM: Güncel kullanıcı adını veritabanından al (LocalStorage eski kalmış olabilir)
+            // 1. ADIM: Güncel kullanıcı adını veritabanından al
             let currentUsername = null;
             const userDoc = await db.collection('users').doc(user.uid).get();
             if (userDoc.exists) {
                 currentUsername = userDoc.data().username;
             } else {
-                // Eğer veritabanında kullanıcı yoksa localStorage'a bak
                 const localData = JSON.parse(localStorage.getItem('currentUser'));
                 if (localData) currentUsername = localData.username;
             }
 
-            // 2. ADIM: Kullanıcının kendi gönderilerini sil (Batch Limit Korumalı)
+            // 2. ADIM: Kullanıcının kendi gönderilerini sil
             const userPostsSnapshot = await db.collection('posts').where('uid', '==', user.uid).get();
             
-            // Firestore batch limiti 500'dür, fazlası için parçalı silme gerekir
             const BATCH_SIZE = 450;
             const chunks = [];
             const docs = userPostsSnapshot.docs;
@@ -194,7 +192,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 chunk.forEach(doc => batch.delete(doc.ref));
                 chunks.push(batch.commit());
             }
-            await Promise.all(chunks); // Tüm gönderi silme paketlerini çalıştır
+            await Promise.all(chunks);
 
             // 3. ADIM: Diğer gönderilerdeki BEĞENİ ve YORUMLARI temizle
             const allPostsSnapshot = await db.collection('posts').get();
@@ -205,14 +203,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 let isModified = false;
                 let updates = {};
 
-                // A) Beğeni Silme (UID bazlı)
+                // A) Beğeni Silme
                 if (post.likedBy && post.likedBy.includes(user.uid)) {
                     updates.likedBy = firebase.firestore.FieldValue.arrayRemove(user.uid);
                     updates.likes = firebase.firestore.FieldValue.increment(-1);
                     isModified = true;
                 }
 
-                // B) Yorum Silme (Kullanıcı Adı bazlı)
+                // B) Yorum Silme
                 if (post.comments && post.comments.length > 0 && currentUsername) {
                     const originalLength = post.comments.length;
                     const cleanComments = post.comments.filter(c => c.username !== currentUsername);
@@ -228,7 +226,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             });
 
-            await Promise.all(updatePromises); // Tüm güncellemeleri bekle
+            await Promise.all(updatePromises);
 
             // 4. ADIM: Kullanıcı Profil Dokümanını Sil
             await db.collection('users').doc(user.uid).delete();
@@ -584,8 +582,33 @@ document.addEventListener('DOMContentLoaded', function() {
     function createAccountPostElement(post) {
         const div = document.createElement('div');
         div.className = 'account-post-item';
-        let mediaHtml = post.imageType === 'none' || !post.image ? `<div class="account-post-image no-image-bg"><i class="fas fa-align-left" style="font-size:24px;"></i></div>` : `<div class="account-post-image" style="background-image: url('${post.image}')"></div>`;
-        div.innerHTML = `${mediaHtml}<div class="account-post-overlay"><div class="account-post-stats"><span class="stat-item"><i class="fas fa-heart"></i> ${post.likes||0}</span><span class="stat-item"><i class="fas fa-comment"></i> ${post.comments ? post.comments.length : 0}</span></div></div><button class="delete-post-btn-account" title="Sil"><i class="fas fa-trash"></i></button>`;
+        
+        // GÜNCELLEME: Çoklu resim kontrolü (İlk resmi göster)
+        const displayImage = (post.images && post.images.length > 0) ? post.images[0] : post.image;
+        const hasMultiple = post.images && post.images.length > 1;
+
+        let mediaHtml = '';
+        if (post.imageType === 'none' || !displayImage) {
+            mediaHtml = `<div class="account-post-image no-image-bg"><i class="fas fa-align-left" style="font-size:24px;"></i></div>`;
+        } else {
+            mediaHtml = `<div class="account-post-image" style="background-image: url('${displayImage}')"></div>`;
+        }
+        
+        // Çoklu resim ikonu
+        const multiIconHtml = hasMultiple ? `<div class="multi-image-icon"><i class="fas fa-clone"></i></div>` : '';
+
+        div.innerHTML = `
+            ${mediaHtml}
+            ${multiIconHtml}
+            <div class="account-post-overlay">
+                <div class="account-post-stats">
+                    <span class="stat-item"><i class="fas fa-heart"></i> ${post.likes||0}</span>
+                    <span class="stat-item"><i class="fas fa-comment"></i> ${post.comments ? post.comments.length : 0}</span>
+                </div>
+            </div>
+            <button class="delete-post-btn-account" title="Sil"><i class="fas fa-trash"></i></button>
+        `;
+        
         div.querySelector('.delete-post-btn-account').addEventListener('click', (e) => { e.stopPropagation(); deletePost(post.id); });
         div.addEventListener('click', () => openPostDetail(post));
         return div;
@@ -596,9 +619,34 @@ document.addEventListener('DOMContentLoaded', function() {
         currentDetailPostId = post.id; currentPostData = post; 
         const currentUser = JSON.parse(localStorage.getItem('currentUser'));
 
-        if (post.imageType === 'none' || !post.image) {
+        // GÜNCELLEME: Slider Entegrasyonu
+        const hasMultiple = post.images && post.images.length > 1;
+        const displayImage = (post.images && post.images.length > 0) ? post.images[0] : post.image;
+
+        if (post.imageType === 'none' || (!post.image && (!post.images || post.images.length === 0))) {
             discussionImageEl.innerHTML = `<div class="no-image-post" style="height:100%; min-height:300px; display:flex; flex-direction:column; align-items:center; justify-content:center; background: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%);"><i class="fas fa-quote-left" style="font-size:48px; color:white; opacity:0.8; margin-bottom:15px;"></i><div style="color:white; font-size:18px; font-weight:600;">Düşünce Paylaşımı</div></div>`;
-        } else { discussionImageEl.innerHTML = `<img src="${post.image}" style="width:100%; height:auto; display:block; border-radius:8px;" alt="Post">`; }
+        } else if (hasMultiple) {
+            // Slider HTML oluştur
+            const slidesHtml = post.images.map(imgSrc => `<div class="slider-slide"><img src="${imgSrc}" style="width:100%; height:100%; object-fit:contain;"></div>`).join('');
+            const dotsHtml = post.images.map((_, i) => `<div class="slider-dot ${i === 0 ? 'active' : ''}"></div>`).join('');
+            
+            discussionImageEl.innerHTML = `
+                <div class="slider-container" id="modal-slider-${post.id}" style="height:100%;">
+                    <div class="slider-track">${slidesHtml}</div>
+                    <div class="slider-dots">${dotsHtml}</div>
+                    <div class="slider-arrow slider-prev"><i class="fas fa-chevron-left"></i></div>
+                    <div class="slider-arrow slider-next"><i class="fas fa-chevron-right"></i></div>
+                </div>`;
+            
+            // Slider'ı başlat (feed.js'deki global fonksiyonu kullan)
+            setTimeout(() => {
+                if(window.setupPostSlider) window.setupPostSlider(document.getElementById(`modal-slider-${post.id}`));
+            }, 100);
+
+        } else { 
+            // Tek resim
+            discussionImageEl.innerHTML = `<img src="${displayImage}" style="width:100%; height:auto; display:block;" alt="Post">`; 
+        }
 
         if (discussionCaptionEl) discussionCaptionEl.innerHTML = `<strong>${post.username}</strong> ${post.caption || ''}`;
 
