@@ -1,4 +1,5 @@
-// feed.js - GOOGLE OTO-DOLDURMA KESİN ÇÖZÜM (READONLY HACK) + PERFORMANCE + ADMIN MODU + MULTI-IMAGE SLIDER
+// feed.js - GOOGLE OTO-DOLDURMA KESİN ÇÖZÜM (READONLY HACK) + PERFORMANCE + ADMIN MODU + MULTI-IMAGE SLIDER + TAM EKRAN NAVİGASYON
+
 document.addEventListener('DOMContentLoaded', function() {
     // --- DİNAMİK CSS STİLLERİ ---
     const style = document.createElement('style');
@@ -39,7 +40,6 @@ document.addEventListener('DOMContentLoaded', function() {
     let feedObserver = null;    
     let viewMode = 'paginated'; 
 
-    // GÜNCELLEME: Tekli görsel yerine dizi kullanıyoruz
     let selectedImages = []; 
     let openDiscussionIds = new Set(); 
     
@@ -246,7 +246,6 @@ document.addEventListener('DOMContentLoaded', function() {
         div.setAttribute('data-post-id', post.id);
         div.style.animation = "fadeInUp 0.5s ease backwards";
         
-        // --- YÖNETİCİ KONTROLÜ ---
         const isAdmin = currentUser && currentUser.role === 'admin';
         const isOwnPost = currentUser && currentUser.username === post.username;
         const canDelete = isOwnPost || isAdmin; 
@@ -257,7 +256,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
         let contentHtml = '';
         
-        // GÜNCELLEME: Çoklu resim kontrolü
         const hasMultipleImages = post.images && post.images.length > 1;
         const displayImage = (post.images && post.images.length > 0) ? post.images[0] : post.image;
 
@@ -268,7 +266,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     <div style="color:white; font-weight:600; font-size:18px; text-align:center; text-shadow:0 2px 4px rgba(0,0,0,0.1);">Düşünce Paylaşımı</div>
                 </div>`;
         } else if (hasMultipleImages) {
-            // --- SLIDER YAPISI ---
             const slidesHtml = post.images.map(imgSrc => `
                 <div class="slider-slide">
                      <img src="${imgSrc}" loading="lazy" alt="Post görseli">
@@ -287,7 +284,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     <div class="slider-arrow slider-next"><i class="fas fa-chevron-right"></i></div>
                 </div>`;
         } else {
-            // TEK RESİM (Klasik Yapı)
             contentHtml = `
                 <div class="post-media-container">
                     <div class="media-blur-bg" style="background-image: url('${displayImage}')"></div>
@@ -588,7 +584,6 @@ document.addEventListener('DOMContentLoaded', function() {
             
             sharePostBtn.textContent = 'Paylaşılıyor...'; sharePostBtn.disabled = true;
             
-            // YENİ YAPI: Hem tekli 'image' (uyumluluk için ilk resim) hem 'images' dizisi gönderiyoruz
             const mainImage = selectedImages.length > 0 ? selectedImages[0] : null;
             
             const newPost = { 
@@ -596,10 +591,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 userId: user.uid, 
                 role: user.role || 'user', 
                 caption: caption, 
-                
-                image: mainImage, // İlk resim
-                images: selectedImages, // Tüm resimler
-                
+                image: mainImage,
+                images: selectedImages,
                 imageType: selectedImages.length > 0 ? 'uploaded' : 'none', 
                 timestamp: new Date().toISOString(), 
                 likes: 0, 
@@ -615,7 +608,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 if(addPostModal) { addPostModal.style.display = 'none'; document.body.style.overflow = 'auto'; }
                 if (typeof window.switchTab === 'function') window.switchTab('home');
                 
-                // Form Temizliği
                 document.getElementById('post-caption').value = ''; 
                 selectedImages = [];
                 const gallery = document.getElementById('preview-gallery');
@@ -629,28 +621,24 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // GÜNCELLEME: ÇOKLU RESİM SEÇİMİ VE GALERİ ÖNİZLEME
     if (imageUploadArea) {
         imageUploadArea.addEventListener('click', () => {
             const input = document.createElement('input'); 
             input.type = 'file'; 
             input.accept = 'image/*';
-            input.multiple = true; // Çoklu seçim aktif
+            input.multiple = true; 
             
             input.onchange = async (e) => {
                 if (e.target.files && e.target.files.length > 0) {
-                    selectedImages = []; // Sıfırla
-                    const files = Array.from(e.target.files).slice(0, 10); // Max 10 resim
+                    selectedImages = []; 
+                    const files = Array.from(e.target.files).slice(0, 10); 
                     
-                    // Önizleme alanını hazırla
                     if(imagePreview) {
-                        imagePreview.style.display = 'none'; // Tekli imajı gizle
-                        // Varsa eski galeriyi temizle
+                        imagePreview.style.display = 'none'; 
                         const oldGallery = document.getElementById('preview-gallery');
                         if(oldGallery) oldGallery.remove();
                     }
 
-                    // Yeni galeri div'i oluştur
                     const galleryDiv = document.createElement('div');
                     galleryDiv.id = 'preview-gallery';
                     galleryDiv.style.cssText = "display:flex; gap:10px; overflow-x:auto; padding:10px; white-space:nowrap; width:100%;";
@@ -663,7 +651,6 @@ document.addEventListener('DOMContentLoaded', function() {
                             compressImage(ev.target.result).then(compressedBase64 => {
                                 selectedImages.push(compressedBase64);
                                 
-                                // Küçük önizleme resmi ekle
                                 const img = document.createElement('img');
                                 img.src = compressedBase64;
                                 img.style.cssText = "min-width:80px; width:80px; height:80px; object-fit:cover; border-radius:8px; border:1px solid var(--border);";
@@ -681,32 +668,65 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // --- TAM EKRAN & ZOOM SİSTEMİ ---
+    // --- TAM EKRAN & ZOOM SİSTEMİ (GÜNCELLENMİŞ VERSİYON) ---
     const fullscreenViewer = document.getElementById('fullscreen-viewer');
     const fullscreenImg = document.getElementById('fullscreen-image');
     const closeFullscreenBtn = document.getElementById('close-fullscreen-btn');
     const fullscreenContainer = document.getElementById('fullscreen-img-container');
+    
+    // Yeni Navigasyon Butonları
+    const fsPrevBtn = document.getElementById('fs-prev-btn');
+    const fsNextBtn = document.getElementById('fs-next-btn');
 
     let state = { scale: 1, panning: false, pointX: 0, pointY: 0, startX: 0, startY: 0 };
     const minScale = 1, maxScale = 5;
 
-    function openFullscreenImage(src) {
+    // YENİ: Tam ekran durum değişkenleri
+    let fsImages = []; 
+    let fsIndex = 0;   
+
+    // YENİ FONKSİYON: Tam ekran açıcı (Dizi veya Tekli destekli)
+    function openFullscreenImage(source, index = 0) {
         if (!fullscreenViewer || !fullscreenImg) return;
-        fullscreenImg.src = src;
-        fullscreenViewer.style.setProperty('--fullscreen-bg', `url('${src}')`);
+        
+        if (Array.isArray(source)) {
+            fsImages = source;
+            fsIndex = index;
+        } else {
+            fsImages = [source];
+            fsIndex = 0;
+        }
+
+        updateFullscreenView(); // Görünümü güncelle
+        
         fullscreenViewer.classList.add('active');
         fullscreenViewer.setAttribute('aria-hidden', 'false'); 
         document.body.style.overflow = 'hidden'; 
         resetZoom();
     }
 
+    // YENİ FONKSİYON: Görüntüyü ve Okları Güncelle
+    function updateFullscreenView() {
+        if (fsImages.length === 0) return;
+        
+        const src = fsImages[fsIndex];
+        fullscreenImg.src = src;
+        fullscreenViewer.style.setProperty('--fullscreen-bg', `url('${src}')`);
+        
+        if (fsImages.length > 1 && fsPrevBtn && fsNextBtn) {
+            fsPrevBtn.style.display = 'flex';
+            fsNextBtn.style.display = 'flex';
+        } else if (fsPrevBtn && fsNextBtn) {
+            fsPrevBtn.style.display = 'none';
+            fsNextBtn.style.display = 'none';
+        }
+    }
+
     function closeFullscreenImage() {
         if (!fullscreenViewer) return;
-        
         if (document.activeElement instanceof HTMLElement) {
             document.activeElement.blur();
         }
-
         fullscreenViewer.classList.remove('active');
         fullscreenViewer.setAttribute('aria-hidden', 'true'); 
         document.body.style.overflow = 'auto'; 
@@ -725,8 +745,33 @@ document.addEventListener('DOMContentLoaded', function() {
         if(fullscreenImg) fullscreenImg.style.transform = `translate(${state.pointX}px, ${state.pointY}px) scale(${state.scale})`;
     }
 
+    // --- BUTON EVENTLERİ ---
     if (closeFullscreenBtn) {
         closeFullscreenBtn.addEventListener('click', (e) => { e.stopPropagation(); closeFullscreenImage(); });
+    }
+
+    // Sol Ok (Geri)
+    if (fsPrevBtn) {
+        fsPrevBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (fsImages.length > 1) {
+                fsIndex = (fsIndex - 1 + fsImages.length) % fsImages.length; // Sonsuz döngü
+                updateFullscreenView();
+                resetZoom();
+            }
+        });
+    }
+
+    // Sağ Ok (İleri)
+    if (fsNextBtn) {
+        fsNextBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (fsImages.length > 1) {
+                fsIndex = (fsIndex + 1) % fsImages.length; // Sonsuz döngü
+                updateFullscreenView();
+                resetZoom();
+            }
+        });
     }
 
     if (fullscreenViewer) {
@@ -843,7 +888,6 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // --- GLOBAL SLIDER FONKSİYONU ---
-// Bu fonksiyon hem Feed'de hem de Account modalında kullanılacak
 window.setupPostSlider = function(container) {
     if (!container) return;
     const track = container.querySelector('.slider-track');
@@ -858,6 +902,12 @@ window.setupPostSlider = function(container) {
     const totalSlides = slides.length;
     let startX = 0;
     let isDragging = false;
+
+    // YENİ EKLENEN KISIM: Tüm resimlerin listesini al
+    const allImagesSrc = Array.from(slides).map(s => {
+        const img = s.querySelector('img');
+        return img ? img.src : null;
+    }).filter(src => src !== null);
 
     function updateSlider() {
         track.style.transform = `translateX(-${currentIndex * 100}%)`;
@@ -890,25 +940,24 @@ window.setupPostSlider = function(container) {
         const endX = e.changedTouches[0].clientX;
         const diff = startX - endX;
 
-        if (Math.abs(diff) > 50) { // 50px eşik değeri
+        if (Math.abs(diff) > 50) { 
             if (diff > 0 && currentIndex < totalSlides - 1) {
-                currentIndex++; // Sola kaydır (İleri)
+                currentIndex++; 
             } else if (diff < 0 && currentIndex > 0) {
-                currentIndex--; // Sağa kaydır (Geri)
+                currentIndex--; 
             }
         }
         updateSlider();
         isDragging = false;
     });
     
-    // Görsellere tıklayınca tam ekran açma (Hala çalışsın diye)
+    // GÜNCELLENEN KISIM: Resme tıklayınca tüm listeyi gönder
     slides.forEach((slide, index) => {
         const img = slide.querySelector('img');
         if(img) {
             img.addEventListener('click', (e) => {
                 e.stopPropagation();
-                // openFullscreenImage fonksiyonu global window altında olmalı
-                if(window.openFullscreenImage) window.openFullscreenImage(img.src);
+                if(window.openFullscreenImage) window.openFullscreenImage(allImagesSrc, index);
             });
         }
     });
