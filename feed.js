@@ -1,4 +1,4 @@
-// feed.js - GOOGLE OTO-DOLDURMA KESİN ÇÖZÜM (READONLY HACK) + PERFORMANCE + ADMIN MODU + MULTI-IMAGE SLIDER + TAM EKRAN NAVİGASYON
+// feed.js - GOOGLE OTO-DOLDURMA KESİN ÇÖZÜM (READONLY HACK) + PERFORMANCE + ADMIN MODU + MULTI-IMAGE SLIDER + TAM EKRAN NAVİGASYON (SWIPE EKLENDİ)
 
 document.addEventListener('DOMContentLoaded', function() {
     // --- DİNAMİK CSS STİLLERİ ---
@@ -786,6 +786,9 @@ document.addEventListener('DOMContentLoaded', function() {
     if (fullscreenContainer && fullscreenImg) {
         let lastTap = 0, isPinching = false, initialPinchDistance = 0, initialScale = 1;
         let initialPinchCenter = { x: 0, y: 0 }, initialPoint = { x: 0, y: 0 };
+        
+        // YENİ EKLENEN: Swipe başlangıcı
+        let swipeStartX = 0;
 
         fullscreenContainer.addEventListener('touchend', function (e) {
             const currentTime = new Date().getTime();
@@ -799,6 +802,32 @@ document.addEventListener('DOMContentLoaded', function() {
                 state.panning = false;
                 fullscreenImg.style.transition = 'transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
                 if (state.scale < 1) resetZoom();
+                
+                // YENİ EKLENEN: Swipe kontrolü (Slide yaparak resim değiştirme)
+                if (!isPinching && state.scale === 1) {
+                    const swipeEndX = e.changedTouches[0].clientX;
+                    const diff = swipeStartX - swipeEndX;
+                    
+                    // 50px'den fazla kaydırma yapılırsa tetikle
+                    if (Math.abs(diff) > 50) {
+                         if (diff > 0) {
+                             // Sola kaydır -> SONRAKİ
+                             if (fsImages.length > 1) {
+                                 fsIndex = (fsIndex + 1) % fsImages.length;
+                                 updateFullscreenView();
+                                 resetZoom();
+                             }
+                         } else {
+                             // Sağa kaydır -> ÖNCEKİ
+                             if (fsImages.length > 1) {
+                                 fsIndex = (fsIndex - 1 + fsImages.length) % fsImages.length;
+                                 updateFullscreenView();
+                                 resetZoom();
+                             }
+                         }
+                    }
+                }
+                
                 if (isPinching) { isPinching = false; return; }
             }
             lastTap = currentTime;
@@ -821,6 +850,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 state.panning = true;
                 state.startX = e.touches[0].pageX - state.pointX;
                 state.startY = e.touches[0].pageY - state.pointY;
+                
+                // YENİ EKLENEN: Swipe başlangıcı kaydet
+                swipeStartX = e.touches[0].clientX;
             }
         });
 
