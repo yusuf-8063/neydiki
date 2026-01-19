@@ -817,3 +817,76 @@ body {
         object-fit: contain;
     }
 }
+/* --- TAM EKRAN SLIDER BUTONLARI --- */
+.fullscreen-nav-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 50px;
+    height: 50px;
+    background-color: rgba(255, 255, 255, 0.15);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    cursor: pointer;
+    z-index: 10002; /* Kapatma butonuyla aynı seviye */
+    transition: all 0.2s ease;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.fullscreen-nav-btn.prev { left: 20px; }
+.fullscreen-nav-btn.next { right: 20px; }
+
+/* Masaüstü Hover */
+@media (hover: hover) {
+    .fullscreen-nav-btn:hover {
+        background-color: rgba(255, 255, 255, 0.3);
+        transform: translateY(-50%) scale(1.1);
+    }
+}
+
+.fullscreen-nav-btn:active {
+    background-color: rgba(255, 255, 255, 0.4);
+    transform: translateY(-50%) scale(0.95);
+}
+
+/* Mobilde butonları biraz küçültelim ve kenarlara yanaştıralım */
+@media (max-width: 768px) {
+    .fullscreen-nav-btn {
+        width: 40px;
+        height: 40px;
+        font-size: 18px;
+        background-color: rgba(0, 0, 0, 0.3); /* Mobilde daha belirgin olsun */
+    }
+    .fullscreen-nav-btn.prev { left: 10px; }
+    .fullscreen-nav-btn.next { right: 10px; }
+}
+
+/* --- MOBİL SLIDER GÜNCELLEMESİ --- */
+/* Mobilde (768px ve altı) slider oklarını gizle, sadece kaydırma çalışsın */
+@media (max-width: 768px) {
+    .slider-arrow {
+        display: none !important;
+    }
+}
+
+/* --- MASAÜSTÜ SLIDER OKLARI (HOVER EFEKTİ) --- */
+
+/* 1. Adım: Okları varsayılan olarak gizle */
+.slider-arrow {
+    opacity: 0;
+    visibility: hidden; /* Görünmezken tıklanmasın */
+    transition: all 0.3s ease; /* Yumuşak belirme efekti */
+}
+
+/* 2. Adım: Mouse resmin/slider'ın üzerine gelince okları göster */
+.slider-container:hover .slider-arrow {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(-50%) scale(1); /* Hafif animasyon sıfırlama */
+}
