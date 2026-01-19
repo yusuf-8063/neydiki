@@ -1,4 +1,5 @@
-// nav-bar.js - FINAL SÜRÜM (Tıklama Kilidi Hatası Giderildi)
+
+// nav-bar.js - SEARCH BAR VE NAVIGASYON DÜZELTMESİ
 document.addEventListener('DOMContentLoaded', function() {
     const homeNav = document.getElementById('home-nav');
     const addPostNav = document.getElementById('add-post-nav');
@@ -8,64 +9,84 @@ document.addEventListener('DOMContentLoaded', function() {
     const accountContent = document.getElementById('account-content');
     const addPostModal = document.getElementById('add-post-modal');
 
+    // Seçiciyi daha kapsayıcı hale getirdik
     const searchContainer = document.querySelector('.search-container');
     
     // Global Fonksiyon: Sekme Değiştirme
     window.switchTab = function(tabName) {
         localStorage.setItem('activeTab', tabName);
 
-        // Önce tüm aktif sınıfları temizle ve TIKLANABİLİRLİĞİ SIFIRLA
+        // Navigasyon öğelerinin aktiflik durumunu temizle
         document.querySelectorAll('.nav-item').forEach(item => {
             item.classList.remove('active');
-            item.style.pointerEvents = 'auto'; // Kilitleri aç
+            item.style.pointerEvents = 'auto';
         });
 
         if (tabName === 'account') {
+            // HESAP SEKMESİ
             if(accountNav) {
                 accountNav.classList.add('active');
-                accountNav.style.pointerEvents = 'none'; // Aktif olana tıklanmasın
+                accountNav.style.pointerEvents = 'none';
             }
-            showContent(accountContent);
-            updatePageTitle('Hesap');
+            if (accountContent) {
+                // Diğer içerikleri gizle
+                document.querySelectorAll('.main-content').forEach(el => el.style.display = 'none');
+                accountContent.style.display = 'block';
+            }
+            if (typeof updatePageTitle === 'function') updatePageTitle('Hesap');
+            
+            // Hesap sekmesinde arama çubuğunu gizle
             if (searchContainer) searchContainer.style.display = 'none';
+            
             document.dispatchEvent(new Event('accountNavClicked'));
+
         } else {
-            // Varsayılan: Home
+            // ANA SAYFA (Varsayılan)
             if(homeNav) {
                 homeNav.classList.add('active');
-                homeNav.style.pointerEvents = 'none'; // Aktif olana tıklanmasın
+                homeNav.style.pointerEvents = 'none';
             }
-            showContent(homeContent);
-            updatePageTitle('Ana Sayfa');
-            if (searchContainer) searchContainer.style.display = ''; 
+            if (homeContent) {
+                // Diğer içerikleri gizle
+                document.querySelectorAll('.main-content').forEach(el => el.style.display = 'none');
+                homeContent.style.display = 'block';
+            }
+            if (typeof updatePageTitle === 'function') updatePageTitle('Ana Sayfa');
+            
+            // DÜZELTME: Arama çubuğunu zorla göster (Flex yapısını bozmadan)
+            if (searchContainer) {
+                searchContainer.style.display = ''; // Inline stili temizle (CSS'e döner)
+                searchContainer.style.opacity = '1';
+                searchContainer.style.visibility = 'visible';
+            }
         }
     };
 
-    // Global Fonksiyon: Navigasyon Durumunu Geri Yükle (İptal Durumu İçin)
+    // Global Fonksiyon: Navigasyon Durumunu Geri Yükle
     window.restoreNavState = function() {
         const currentTab = localStorage.getItem('activeTab') || 'home';
         
-        // ÖNEMLİ DÜZELTME: Tüm butonların kilidini açıyoruz
         document.querySelectorAll('.nav-item').forEach(item => {
             item.classList.remove('active');
-            item.style.pointerEvents = 'auto'; // <-- BU SATIR EKLENDİ (SORUNU ÇÖZEN KISIM)
+            item.style.pointerEvents = 'auto';
         });
         
         if (currentTab === 'account') {
             if(accountNav) {
                 accountNav.classList.add('active');
-                accountNav.style.pointerEvents = 'none'; // Sadece aktif olanı kilitle
+                accountNav.style.pointerEvents = 'none';
             }
         } else {
             if(homeNav) {
                 homeNav.classList.add('active');
-                homeNav.style.pointerEvents = 'none'; // Sadece aktif olanı kilitle
+                homeNav.style.pointerEvents = 'none';
             }
         }
     };
 
-    // Başlangıç Durumu
+    // Başlangıç Durumu Kontrolü
     const savedTab = localStorage.getItem('activeTab');
+    // Sayfa ilk yüklendiğinde search bar'ın durumunu garantiye al
     if (savedTab === 'account') {
         window.switchTab('account');
     } else {
@@ -81,19 +102,20 @@ document.addEventListener('DOMContentLoaded', function() {
         addPostNav.addEventListener('click', () => {
             const currentUser = JSON.parse(localStorage.getItem('currentUser'));
             if (!currentUser) {
-                showNotification('Gönderi paylaşmak için giriş yapmalısınız!', 'error');
+                if(typeof showNotification === 'function') {
+                    showNotification('Gönderi paylaşmak için giriş yapmalısınız!', 'error');
+                } else {
+                    alert('Lütfen giriş yapın.');
+                }
                 window.switchTab('account');
                 return;
             }
             
-            // Görsel olarak + butonunu aktif yap
             setActiveNav(addPostNav); 
             
-            // Modalı aç
             if(window.openModal && addPostModal) {
                 window.openModal(addPostModal);
             } else if(addPostModal) {
-                // Fallback (eğer openModal global değilse)
                 addPostModal.style.display = 'flex';
                 addPostModal.setAttribute('aria-hidden', 'false');
             }
