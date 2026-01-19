@@ -352,7 +352,7 @@
                     <div class="account-stats">
                         <div class="account-stat"><i class="fas fa-images" aria-hidden="true"></i><strong id="account-posts">0</strong><span>Gönderi</span></div>
                         <div class="account-stat"><i class="fas fa-heart" aria-hidden="true"></i><strong id="account-likes">0</strong><span>Beğeni</span></div>
-                        <div class="account-stat"><i class="fas fa-calendar-day" aria-hidden="true"></i><strong id="account-days">0</strong><span>Gündür üye</span></div>
+                        <div class="account-stat"><i class="fas fa-comments" aria-hidden="true"></i><strong id="account-total-comments">0</strong><span>Yorum</span></div>
                     </div>
                     <div class="account-actions">
                         <button class="account-btn secondary" id="edit-account-btn" aria-label="Bilgilerimi düzenle"><i class="fas fa-edit" aria-hidden="true"></i> Bilgilerimi Düzenle</button>
@@ -437,7 +437,7 @@
                             autocomplete="off" 
                             autocorrect="off" 
                             autocapitalize="off" 
-                            spellcheck="false"
+                            spellcheck="false" 
                             enterkeyhint="send"
                             readonly
                             onfocus="this.removeAttribute('readonly');"
@@ -522,6 +522,13 @@
     <div id="fullscreen-viewer" class="fullscreen-viewer" aria-hidden="true">
         <div class="close-fullscreen" id="close-fullscreen-btn" role="button" tabindex="0" aria-label="Tam ekranı kapat">
             <i class="fas fa-times" aria-hidden="true"></i>
+        </div>
+
+        <div class="fullscreen-nav-btn prev" id="fs-prev-btn" style="display: none;">
+            <i class="fas fa-chevron-left"></i>
+        </div>
+        <div class="fullscreen-nav-btn next" id="fs-next-btn" style="display: none;">
+            <i class="fas fa-chevron-right"></i>
         </div>
         <div class="fullscreen-img-container" id="fullscreen-img-container">
             <img class="fullscreen-image" id="fullscreen-image" src="" alt="Tam ekran görüntü">
