@@ -890,3 +890,10 @@ body {
     visibility: visible;
     transform: translateY(-50%) scale(1); /* Hafif animasyon sıfırlama */
 }
+
+/* Mobilde butonları GİZLE (Swipe kullanılacak) */
+@media (max-width: 768px) {
+    .fullscreen-nav-btn {
+        display: none !important; /* Butonları tamamen kaldırır */
+    }
+}
