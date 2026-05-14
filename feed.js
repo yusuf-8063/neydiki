@@ -1,7 +1,5 @@
-// feed.js - GOOGLE OTO-DOLDURMA KESİN ÇÖZÜM (READONLY HACK) + PERFORMANCE + ADMIN MODU + MULTI-IMAGE SLIDER + TAM EKRAN NAVİGASYON (SWIPE EKLENDİ)
-
+// feed.js - ÖNBELLEK (STALE-WHILE-REVALIDATE) EKLENTİSİYLE GÜNCELLENDİ
 document.addEventListener('DOMContentLoaded', function() {
-    // --- DİNAMİK CSS STİLLERİ ---
     const style = document.createElement('style');
     style.textContent = `
         .comment-text.collapsed {
@@ -32,7 +30,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const imageUploadArea = document.getElementById('image-upload-area');
     const imagePreview = document.getElementById('image-preview');
     
-    // --- STATE MANAGEMENT ---
     let rawPosts = [];          
     let lastVisibleDoc = null;  
     let isFetching = false;     
@@ -51,7 +48,315 @@ document.addEventListener('DOMContentLoaded', function() {
         search: ''
     };
 
-    // --- RESİM SIKIŞTIRMA ---
+    window.showUserListModal = async function(title, userIds) {
+        const modal = document.getElementById('user-list-modal');
+        const titleEl = document.getElementById('user-list-title');
+        const container = document.getElementById('user-list-container');
+        
+        if(!modal || !titleEl || !container) return;
+        
+        titleEl.textContent = title;
+        container.innerHTML = '<div style="text-align:center; padding:30px;"><div class="feed-spinner" style="margin: 0 auto;"></div><p style="margin-top:15px; color:var(--text-light);">Yükleniyor...</p></div>';
+        
+        if (window.openModal) window.openModal(modal);
+        else { modal.style.display = 'flex'; modal.setAttribute('aria-hidden', 'false'); }
+        
+        if(!userIds || userIds.length === 0) {
+            container.innerHTML = '<div class="empty-user-list"><i class="fas fa-users-slash"></i>Kimse bulunamadı.</div>';
+            return;
+        }
+        
+        try {
+            const userDocs = await Promise.all(userIds.map(id => window.db.collection('users').doc(id).get()));
+            
+            container.innerHTML = '';
+            let hasUsers = false;
+            
+            userDocs.forEach(doc => {
+                if (doc.exists) {
+                    hasUsers = true;
+                    const uData = doc.data();
+                    const id = doc.id;
+                    
+                    const item = document.createElement('div');
+                    item.className = 'user-list-item';
+                    
+                    let avatarHtml = '';
+                    if (uData.profilePic && uData.profilePic.trim() !== "") {
+                        avatarHtml = `<div class="user-list-avatar" style="background-image: url('${uData.profilePic}')"></div>`;
+                    } else {
+                        avatarHtml = `<div class="user-list-avatar default-avatar"><i class="fas fa-user"></i></div>`;
+                    }
+                    
+                    item.innerHTML = `
+                        ${avatarHtml}
+                        <div class="user-list-info">
+                            <span class="user-list-username">@${uData.username || 'anonim'}</span>
+                            <span class="user-list-fullname">${uData.fullname || ''}</span>
+                        </div>
+                    `;
+                    
+                    item.onclick = () => {
+                        if (window.closeModal) window.closeModal(modal);
+                        else modal.style.display = 'none';
+                        
+                        setTimeout(() => {
+                            window.openUserProfile(id);
+                        }, 300);
+                    };
+                    
+                    container.appendChild(item);
+                }
+            });
+            
+            if (!hasUsers) {
+                container.innerHTML = '<div class="empty-user-list"><i class="fas fa-users-slash"></i>Kimse bulunamadı.</div>';
+            }
+        } catch (err) {
+            console.error("Kullanıcı listesi çekilemedi:", err);
+            container.innerHTML = '<div class="empty-user-list" style="color:var(--like-color);"><i class="fas fa-exclamation-triangle"></i>Bir hata oluştu.</div>';
+        }
+    };
+
+    let currentProfileUnsubscribe = null;
+    let currentProfilePostsUnsubscribe = null;
+
+    window.openUserProfile = function(targetUserId) {
+        const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+        
+        if(currentUser && currentUser.uid === targetUserId) {
+            if(window.switchTab) window.switchTab('account');
+            return;
+        }
+
+        if(window.switchTab) window.switchTab('profile');
+
+        const profileUsername = document.getElementById('profile-username');
+        const profileAvatar = document.getElementById('profile-avatar-img');
+        const followerCount = document.getElementById('follower-count');
+        const followingCount = document.getElementById('following-count');
+        const postCount = document.getElementById('post-count');
+        const followBtn = document.getElementById('follow-user-btn');
+        const unfollowBtn = document.getElementById('unfollow-user-btn');
+        const postsTab = document.getElementById('posts-tab');
+        const profileBioText = document.getElementById('profile-bio-text');
+
+        postsTab.innerHTML = '<div class="feed-spinner" style="margin:40px auto;"></div>';
+        
+        if(currentProfileUnsubscribe) currentProfileUnsubscribe();
+        
+        let isUserPrivate = false;
+
+        currentProfileUnsubscribe = window.db.collection('users').doc(targetUserId).onSnapshot(doc => {
+            if(!doc.exists) {
+                if(typeof showNotification === 'function') showNotification('Kullanıcı bulunamadı', 'error');
+                if(window.switchTab) window.switchTab('home');
+                return;
+            }
+            
+            const userData = doc.data();
+            isUserPrivate = userData.isPrivate || false;
+
+            profileUsername.textContent = '@' + userData.username;
+            if(profileBioText) profileBioText.textContent = userData.fullname || '';
+            
+            profileAvatar.style.display = 'flex';
+            profileAvatar.style.alignItems = 'center';
+            profileAvatar.style.justifyContent = 'center';
+            
+            if(userData.profilePic && userData.profilePic.trim() !== "") {
+                profileAvatar.style.background = `url('${userData.profilePic}') center/cover no-repeat`;
+                profileAvatar.innerHTML = '';
+            } else {
+                profileAvatar.style.background = '#e1e1e1';
+                profileAvatar.innerHTML = '<i class="fas fa-user" style="font-size: 40px; color: #999;"></i>';
+            }
+
+            const followers = userData.followers || [];
+            const following = userData.following || [];
+            const followRequests = userData.followRequests || [];
+            
+            followerCount.textContent = followers.length;
+            followingCount.textContent = following.length;
+
+            const followerStat = followerCount.closest('.stat');
+            const followingStat = followingCount.closest('.stat');
+            
+            if (followerStat) {
+                followerStat.style.cursor = 'pointer';
+                followerStat.onclick = () => window.showUserListModal('Kitle (' + followers.length + ')', followers);
+            }
+            if (followingStat) {
+                followingStat.style.cursor = 'pointer';
+                followingStat.onclick = () => window.showUserListModal('Odak (' + following.length + ')', following);
+            }
+
+            if(currentUser) {
+                if(followers.includes(currentUser.uid)) {
+                    followBtn.style.display = 'none';
+                    unfollowBtn.style.display = 'flex';
+                    unfollowBtn.innerHTML = '<i class="fas fa-user-check"></i> Odaktan Çık';
+                    unfollowBtn.onclick = () => window.toggleFollow(targetUserId, false);
+                } else if(followRequests.includes(currentUser.uid)) {
+                    followBtn.style.display = 'none';
+                    unfollowBtn.style.display = 'flex';
+                    unfollowBtn.innerHTML = '<i class="fas fa-clock"></i> İstek Gönderildi';
+                    unfollowBtn.onclick = () => window.toggleFollow(targetUserId, false);
+                } else {
+                    followBtn.style.display = 'flex';
+                    unfollowBtn.style.display = 'none';
+                    followBtn.innerHTML = '<i class="fas fa-crosshairs"></i> Odaklan';
+                    followBtn.onclick = () => window.toggleFollow(targetUserId, true);
+                }
+            } else {
+                followBtn.style.display = 'flex';
+                unfollowBtn.style.display = 'none';
+                followBtn.onclick = () => window.toggleFollow(targetUserId, true);
+            }
+        });
+
+        if(currentProfilePostsUnsubscribe) currentProfilePostsUnsubscribe();
+        
+        currentProfilePostsUnsubscribe = window.db.collection('posts').where('userId', '==', targetUserId).onSnapshot(snapshot => {
+            postCount.textContent = snapshot.docs.length;
+            postsTab.innerHTML = '';
+            
+            const isOwner = currentUser && currentUser.uid === targetUserId;
+            const isFollowing = currentUser && currentUser.following && currentUser.following.includes(targetUserId);
+
+            if (isUserPrivate && !isOwner && !isFollowing) {
+                postsTab.innerHTML = `
+                    <div class="private-account-message">
+                        <i class="fas fa-lock"></i>
+                        <h3>Bu Hesap Gizli</h3>
+                        <p>Gönderilerini görmek için bu kullanıcıya odaklanmalısın.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            if(snapshot.empty) {
+                postsTab.innerHTML = '<div class="empty-account-posts" style="grid-column: 1/-1; padding:40px; text-align:center; color: var(--text-light);"><i class="fas fa-camera" style="font-size: 40px; opacity:0.5; margin-bottom:10px;"></i><p>Henüz paylaşım yok.</p></div>';
+                return;
+            }
+            
+            let posts = [];
+            snapshot.forEach(d => { let p = d.data(); p.id = d.id; posts.push(p); });
+            posts.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
+            
+            posts.forEach(post => {
+                const pEl = document.createElement('div');
+                pEl.className = 'account-post-item'; 
+                pEl.style.cursor = 'pointer';
+                
+                const displayImage = (post.images && post.images.length > 0) ? post.images[0] : post.image;
+                const hasMultiple = post.images && post.images.length > 1;
+
+                let mediaHtml = '';
+                if (post.imageType === 'none' || !displayImage) {
+                    mediaHtml = `<div class="account-post-image no-image-bg"><i class="fas fa-align-left" style="font-size:24px;"></i></div>`;
+                } else {
+                    mediaHtml = `<div class="account-post-image" style="background-image: url('${displayImage}')"></div>`;
+                }
+                
+                const multiIconHtml = hasMultiple ? `<div class="multi-image-icon"><i class="fas fa-clone"></i></div>` : '';
+
+                pEl.innerHTML = `
+                    ${mediaHtml}
+                    ${multiIconHtml}
+                    <div class="account-post-overlay">
+                        <div class="account-post-stats">
+                            <span class="stat-item"><i class="fas fa-heart"></i> ${post.likes||0}</span>
+                            <span class="stat-item"><i class="fas fa-comment"></i> ${post.comments ? post.comments.length : 0}</span>
+                        </div>
+                    </div>
+                `;
+                
+                pEl.onclick = () => {
+                     if (window.openPostDetail) {
+                         window.openPostDetail(post);
+                     } else {
+                         if(post.images && post.images.length > 0) {
+                              if(window.openFullscreenImage) window.openFullscreenImage(post.images, 0);
+                         } else if (post.image) {
+                              if(window.openFullscreenImage) window.openFullscreenImage(post.image);
+                         } else {
+                              if(typeof showNotification === 'function') showNotification('Bu sadece bir yazı gönderisi.', 'info');
+                         }
+                     }
+                };
+                postsTab.appendChild(pEl);
+            });
+        });
+    };
+
+    window.openProfileByUsername = async function(username) {
+        try {
+            const discModal = document.getElementById('discussion-modal');
+            if (discModal && discModal.style.display !== 'none') {
+                if (window.closeModal) window.closeModal(discModal);
+                else { discModal.style.display = 'none'; document.body.style.overflow = 'auto'; }
+            }
+
+            const snapshot = await window.db.collection('users').where('username', '==', username).get();
+            if (!snapshot.empty) {
+                const userDoc = snapshot.docs[0];
+                window.openUserProfile(userDoc.id);
+            } else {
+                if(typeof showNotification === 'function') showNotification('Kullanıcı bulunamadı.', 'error');
+            }
+        } catch(err) {
+            console.error("Profil açma hatası:", err);
+        }
+    };
+
+    window.toggleFollow = async function(targetUid, isFollowingAction) {
+        const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+        if(!currentUser) { 
+            if(typeof showNotification === 'function') showNotification('Odaklanmak için giriş yapmalısınız.', 'error'); 
+            return; 
+        }
+
+        const targetRef = window.db.collection('users').doc(targetUid);
+        const currentRef = window.db.collection('users').doc(currentUser.uid);
+
+        const followBtn = document.getElementById('follow-user-btn');
+        const unfollowBtn = document.getElementById('unfollow-user-btn');
+        if(followBtn) followBtn.disabled = true;
+        if(unfollowBtn) unfollowBtn.disabled = true;
+
+        try {
+            const targetDoc = await targetRef.get();
+            const isPrivate = targetDoc.data().isPrivate || false;
+
+            if(isFollowingAction) {
+                if (isPrivate) {
+                    await targetRef.update({ followRequests: firebase.firestore.FieldValue.arrayUnion(currentUser.uid) });
+                    if(window.sendNotification) window.sendNotification(targetUid, 'follow_request');
+                    if(typeof showNotification === 'function') showNotification('Takip isteği gönderildi!', 'success');
+                } else {
+                    await targetRef.update({ followers: firebase.firestore.FieldValue.arrayUnion(currentUser.uid) });
+                    await currentRef.update({ following: firebase.firestore.FieldValue.arrayUnion(targetUid) });
+                    if(window.sendNotification) window.sendNotification(targetUid, 'follow');
+                    if(typeof showNotification === 'function') showNotification('Kullanıcıya odaklanıldı!', 'success');
+                }
+            } else {
+                await targetRef.update({ 
+                    followers: firebase.firestore.FieldValue.arrayRemove(currentUser.uid),
+                    followRequests: firebase.firestore.FieldValue.arrayRemove(currentUser.uid)
+                });
+                await currentRef.update({ following: firebase.firestore.FieldValue.arrayRemove(targetUid) });
+                if(typeof showNotification === 'function') showNotification('Takipten / İstekten çıkıldı.', 'info');
+            }
+        } catch(err) {
+            console.error(err);
+            if(typeof showNotification === 'function') showNotification('İşlem başarısız oldu.', 'error');
+        } finally {
+            if(followBtn) followBtn.disabled = false;
+            if(unfollowBtn) unfollowBtn.disabled = false;
+        }
+    };
+
     function compressImage(base64Str, maxWidth = 1200, maxHeight = 1200) {
         return new Promise((resolve) => {
             let img = new Image();
@@ -76,11 +381,25 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // --- BAŞLATMA VE VERİ ÇEKME ---
+    // PERFORMANS: Stale-while-revalidate eklendi
     function initFeed() {
         if (!imageFeed || !window.db) return;
-        imageFeed.innerHTML = `<div class="feed-loading" id="initial-loader"><div class="feed-spinner"></div><p>Akış güncelleniyor...</p></div>`;
-        fetchPosts(true);
+        
+        const cachedFeed = localStorage.getItem('neyDiki_feedCache');
+        if (cachedFeed) {
+            try {
+                const parsedPosts = JSON.parse(cachedFeed);
+                if (parsedPosts && parsedPosts.length > 0) {
+                    rawPosts = parsedPosts;
+                    imageFeed.innerHTML = ''; 
+                    renderBatch(rawPosts, true);
+                }
+            } catch (e) {
+                console.error("Cache okuma hatası", e);
+            }
+        }
+        
+        fetchPosts(true); // Arka planda gerçek veriyi çek
     }
 
     function createSentinel() {
@@ -114,8 +433,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (!isInitial && lastVisibleDoc) query = query.startAfter(lastVisibleDoc);
             }
             const snapshot = await query.get();
-            const initialLoader = document.getElementById('initial-loader');
-            if (initialLoader) initialLoader.remove();
 
             if (snapshot.empty) {
                 isAllFetched = true;
@@ -132,17 +449,24 @@ document.addEventListener('DOMContentLoaded', function() {
 
             if (isInitial) {
                 rawPosts = newPosts;
+                // PERFORMANS: Yeni veriyi önbelleğe kaydet
+                localStorage.setItem('neyDiki_feedCache', JSON.stringify(newPosts.slice(0, 10)));
+                imageFeed.innerHTML = ''; // İskeletleri temizle
                 createSentinel(); 
             } else {
                 const existingIds = new Set(rawPosts.map(p => p.id));
                 const uniqueNewPosts = newPosts.filter(p => !existingIds.has(p.id));
                 rawPosts = [...rawPosts, ...uniqueNewPosts];
             }
-            renderBatch(isInitial ? rawPosts : newPosts, isInitial);
+            
+            if (isInitial) {
+                renderBatch(rawPosts, true);
+            } else {
+                renderBatch(newPosts, false);
+            }
+            
         } catch (error) {
             console.error("Veri hatası:", error);
-            const initialLoader = document.getElementById('initial-loader');
-            if (initialLoader) initialLoader.remove();
         } finally {
             isFetching = false;
             if (sentinel) sentinel.style.opacity = '0';
@@ -171,6 +495,14 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function checkPostFilter(post) {
+        if (post.isPrivate) {
+            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+            if (!currentUser) return false; 
+            if (post.userId !== currentUser.uid && (!currentUser.following || !currentUser.following.includes(post.userId))) {
+                return false; 
+            }
+        }
+
         if (activeFilters.search) {
             const term = activeFilters.search.toLowerCase();
             const textMatch = (post.caption && post.caption.toLowerCase().includes(term)) ||
@@ -291,10 +623,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>`;
         }
 
-        let avatarStyle = 'display: flex; align-items: center; justify-content: center;';
+        let avatarStyle = 'display: flex; align-items: center; justify-content: center; cursor: pointer;';
         let avatarContent = '';
-        if (post.userProfilePic || (isOwnPost && currentUser.profilePic)) {
-            avatarStyle += `background: url('${isOwnPost && currentUser.profilePic ? currentUser.profilePic : post.userProfilePic}') center/cover no-repeat;`;
+        
+        const userPic = (isOwnPost && currentUser.profilePic) ? currentUser.profilePic : post.userProfilePic;
+        
+        if (userPic && userPic.trim() !== "") {
+            avatarStyle += `background: url('${userPic}') center/cover no-repeat;`;
         } else {
             avatarStyle += `background: #e1e1e1;`;
             avatarContent = `<i class="fas fa-user" style="color: #999; font-size: 18px;" aria-hidden="true"></i>`;
@@ -304,13 +639,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
         div.innerHTML = `
             <div class="card-header">
-                <div class="user-avatar" style="${avatarStyle}" aria-label="${post.username} profil resmi">${avatarContent}</div>
+                <div class="user-avatar" style="${avatarStyle}" onclick="window.openUserProfile('${post.userId}')" aria-label="${post.username} profil resmi">${avatarContent}</div>
                 <div class="user-info">
-                    <div class="username" style="display:flex; align-items:center;">
+                    <div class="username" style="display:flex; align-items:center; cursor:pointer;" onclick="window.openUserProfile('${post.userId}')">
                         ${post.username || 'Anonim'}
                         ${adminBadge}
                     </div>
-                    <div class="post-time">${timeAgo(post.timestamp)}</div>
+                    <div class="post-time">${window.timeAgoGlobal ? window.timeAgoGlobal(post.timestamp) : "Az önce"}</div>
                 </div>
                 ${canDelete ? `<button class="delete-post-btn" aria-label="Gönderiyi sil"><i class="fas fa-trash" aria-hidden="true"></i></button>` : ''}
             </div>
@@ -353,11 +688,9 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
         `;
 
-        // SLIDER EVENTLERİ (Varsa başlat)
         if (hasMultipleImages) {
             setTimeout(() => window.setupPostSlider(div.querySelector(`#slider-${post.id}`)), 0);
         } else {
-            // Tek resim için tam ekran özelliği
             const postImage = div.querySelector('.card-image');
             if (postImage && post.imageType !== 'none') {
                 postImage.addEventListener('click', (e) => {
@@ -396,7 +729,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     openDiscussionIds.add(post.id);
                     const scrollContainer = div.querySelector('.comments-container');
                     if(scrollContainer) setTimeout(() => { scrollContainer.scrollTop = scrollContainer.scrollHeight; }, 100); 
-                    
                 } else {
                     discSection.classList.remove('expanded'); 
                     openDiscussionIds.delete(post.id);
@@ -414,6 +746,12 @@ document.addEventListener('DOMContentLoaded', function() {
         if(commentInput) commentInput.addEventListener('keypress', (e) => { if(e.key === 'Enter') { e.preventDefault(); handleSend(); } });
 
         commentsListEl.addEventListener('click', (e) => {
+            if(e.target.classList.contains('comment-user')) {
+                e.preventDefault();
+                if(window.openProfileByUsername) window.openProfileByUsername(e.target.textContent.trim());
+                return;
+            }
+
             const delCommentBtn = e.target.closest('.comment-delete-btn');
             if(delCommentBtn) { e.preventDefault(); deleteComment(post.id, delCommentBtn.dataset.id); }
             const likeCommentBtn = e.target.closest('.comment-like-btn');
@@ -450,7 +788,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     ${isLongText ? '<button class="read-more-btn">Devamını oku</button>' : ''}
                     <div class="comment-footer">
                         <div class="footer-left"><button class="comment-like-btn ${isLiked ? 'active' : ''}" data-id="${c.id}"><i class="${isLiked ? 'fas' : 'far'} fa-heart"></i> ${c.likes > 0 ? c.likes : ''}</button></div>
-                        <div class="footer-right">${canDelete ? `<button class="comment-delete-btn" data-id="${c.id}"><i class="fas fa-trash"></i></button>` : ''}<span class="comment-time">${timeAgo(c.timestamp)}</span></div>
+                        <div class="footer-right">${canDelete ? `<button class="comment-delete-btn" data-id="${c.id}"><i class="fas fa-trash"></i></button>` : ''}<span class="comment-time">${window.timeAgoGlobal ? window.timeAgoGlobal(c.timestamp) : "Az önce"}</span></div>
                     </div>
                 </div>`;
         }).join('');
@@ -471,6 +809,8 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             newLikes++; likedBy.push(user.uid);
             ref.update({ likes: firebase.firestore.FieldValue.increment(1), likedBy: firebase.firestore.FieldValue.arrayUnion(user.uid) });
+            
+            if(window.sendNotification) window.sendNotification(currentPost.userId, 'like', postId, (currentPost.images && currentPost.images[0]) || currentPost.image || null);
         }
         currentPost.likes = newLikes; currentPost.likedBy = likedBy;
         
@@ -533,7 +873,10 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
         window.db.collection("posts").doc(postId).update({ comments: firebase.firestore.FieldValue.arrayUnion(newComment) })
-            .then(() => { if(typeof showNotification==='function') showNotification('Yorum gönderildi', 'success'); });
+            .then(() => {
+                if(typeof showNotification==='function') showNotification('Yorum gönderildi', 'success');
+                if(post && window.sendNotification) window.sendNotification(post.userId, 'comment', postId, (post.images && post.images[0]) || post.image || null, text);
+            });
     }
 
     function deleteComment(postId, cId) {
@@ -559,14 +902,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 rawPosts = rawPosts.filter(p => p.id !== postId);
             });
         }
-    }
-
-    function timeAgo(date) {
-        const s = Math.floor((new Date() - new Date(date)) / 1000);
-        if (s < 60) return "Az önce";
-        if (s < 3600) return Math.floor(s/60) + "dk";
-        if (s < 86400) return Math.floor(s/3600) + "sa";
-        return Math.floor(s/86400) + "g";
     }
 
     function getCurrentUserOrAlert() {
@@ -598,7 +933,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 likes: 0, 
                 likedBy: [], 
                 comments: [], 
-                userProfilePic: user.profilePic || null 
+                userProfilePic: user.profilePic || null,
+                isPrivate: user.isPrivate || false 
             };
             
             window.db.collection("posts").add(newPost).then((docRef) => {
@@ -668,166 +1004,95 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // --- TAM EKRAN & ZOOM SİSTEMİ (GÜNCELLENMİŞ VERSİYON) ---
     const fullscreenViewer = document.getElementById('fullscreen-viewer');
     const fullscreenImg = document.getElementById('fullscreen-image');
     const closeFullscreenBtn = document.getElementById('close-fullscreen-btn');
     const fullscreenContainer = document.getElementById('fullscreen-img-container');
-    
-    // Yeni Navigasyon Butonları
     const fsPrevBtn = document.getElementById('fs-prev-btn');
     const fsNextBtn = document.getElementById('fs-next-btn');
 
     let state = { scale: 1, panning: false, pointX: 0, pointY: 0, startX: 0, startY: 0 };
     const minScale = 1, maxScale = 5;
+    let fsImages = []; let fsIndex = 0;   
 
-    // YENİ: Tam ekran durum değişkenleri
-    let fsImages = []; 
-    let fsIndex = 0;   
-
-    // YENİ FONKSİYON: Tam ekran açıcı (Dizi veya Tekli destekli)
     function openFullscreenImage(source, index = 0) {
         if (!fullscreenViewer || !fullscreenImg) return;
-        
-        if (Array.isArray(source)) {
-            fsImages = source;
-            fsIndex = index;
-        } else {
-            fsImages = [source];
-            fsIndex = 0;
-        }
-
-        updateFullscreenView(); // Görünümü güncelle
-        
+        if (Array.isArray(source)) { fsImages = source; fsIndex = index; } 
+        else { fsImages = [source]; fsIndex = 0; }
+        updateFullscreenView(); 
         fullscreenViewer.classList.add('active');
         fullscreenViewer.setAttribute('aria-hidden', 'false'); 
         document.body.style.overflow = 'hidden'; 
         resetZoom();
     }
 
-    // YENİ FONKSİYON: Görüntüyü ve Okları Güncelle
     function updateFullscreenView() {
         if (fsImages.length === 0) return;
-        
         const src = fsImages[fsIndex];
         fullscreenImg.src = src;
         fullscreenViewer.style.setProperty('--fullscreen-bg', `url('${src}')`);
-        
-        if (fsImages.length > 1 && fsPrevBtn && fsNextBtn) {
-            fsPrevBtn.style.display = 'flex';
-            fsNextBtn.style.display = 'flex';
-        } else if (fsPrevBtn && fsNextBtn) {
-            fsPrevBtn.style.display = 'none';
-            fsNextBtn.style.display = 'none';
-        }
+        if (fsImages.length > 1 && fsPrevBtn && fsNextBtn) { fsPrevBtn.style.display = 'flex'; fsNextBtn.style.display = 'flex'; } 
+        else if (fsPrevBtn && fsNextBtn) { fsPrevBtn.style.display = 'none'; fsNextBtn.style.display = 'none'; }
     }
 
     function closeFullscreenImage() {
         if (!fullscreenViewer) return;
-        if (document.activeElement instanceof HTMLElement) {
-            document.activeElement.blur();
-        }
+        if (document.activeElement instanceof HTMLElement) { document.activeElement.blur(); }
         fullscreenViewer.classList.remove('active');
         fullscreenViewer.setAttribute('aria-hidden', 'true'); 
-        document.body.style.overflow = 'auto'; 
+        
+        let isAnyModalOpen = false;
+        document.querySelectorAll('.modal').forEach(m => {
+            if (window.getComputedStyle(m).display !== 'none') {
+                isAnyModalOpen = true;
+            }
+        });
+
+        if (!isAnyModalOpen) {
+            document.body.style.overflow = 'auto'; 
+        }
+
         setTimeout(() => { if(fullscreenImg) fullscreenImg.src = ''; }, 300);
     }
 
     function resetZoom() {
         state = { scale: 1, panning: false, pointX: 0, pointY: 0, startX: 0, startY: 0 };
-        if(fullscreenImg) {
-            fullscreenImg.style.transition = 'transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
-            updateTransform();
-        }
+        if(fullscreenImg) { fullscreenImg.style.transition = 'transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94)'; updateTransform(); }
     }
 
-    function updateTransform() {
-        if(fullscreenImg) fullscreenImg.style.transform = `translate(${state.pointX}px, ${state.pointY}px) scale(${state.scale})`;
-    }
+    function updateTransform() { if(fullscreenImg) fullscreenImg.style.transform = `translate(${state.pointX}px, ${state.pointY}px) scale(${state.scale})`; }
 
-    // --- BUTON EVENTLERİ ---
-    if (closeFullscreenBtn) {
-        closeFullscreenBtn.addEventListener('click', (e) => { e.stopPropagation(); closeFullscreenImage(); });
-    }
-
-    // Sol Ok (Geri)
-    if (fsPrevBtn) {
-        fsPrevBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (fsImages.length > 1) {
-                fsIndex = (fsIndex - 1 + fsImages.length) % fsImages.length; // Sonsuz döngü
-                updateFullscreenView();
-                resetZoom();
-            }
-        });
-    }
-
-    // Sağ Ok (İleri)
-    if (fsNextBtn) {
-        fsNextBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (fsImages.length > 1) {
-                fsIndex = (fsIndex + 1) % fsImages.length; // Sonsuz döngü
-                updateFullscreenView();
-                resetZoom();
-            }
-        });
-    }
+    if (closeFullscreenBtn) { closeFullscreenBtn.addEventListener('click', (e) => { e.stopPropagation(); closeFullscreenImage(); }); }
+    if (fsPrevBtn) { fsPrevBtn.addEventListener('click', (e) => { e.stopPropagation(); if (fsImages.length > 1) { fsIndex = (fsIndex - 1 + fsImages.length) % fsImages.length; updateFullscreenView(); resetZoom(); } }); }
+    if (fsNextBtn) { fsNextBtn.addEventListener('click', (e) => { e.stopPropagation(); if (fsImages.length > 1) { fsIndex = (fsIndex + 1) % fsImages.length; updateFullscreenView(); resetZoom(); } }); }
 
     if (fullscreenViewer) {
         fullscreenViewer.addEventListener('click', (e) => {
-            if (state.scale === 1 && !state.panning) {
-                if (e.target === fullscreenViewer || e.target === fullscreenContainer) closeFullscreenImage();
-            }
+            if (state.scale === 1 && !state.panning) { if (e.target === fullscreenViewer || e.target === fullscreenContainer) closeFullscreenImage(); }
         });
     }
     
-    // Zoom/Pinch event listenerları...
     if (fullscreenContainer && fullscreenImg) {
         let lastTap = 0, isPinching = false, initialPinchDistance = 0, initialScale = 1;
         let initialPinchCenter = { x: 0, y: 0 }, initialPoint = { x: 0, y: 0 };
-        
-        // YENİ EKLENEN: Swipe başlangıcı
         let swipeStartX = 0;
 
         fullscreenContainer.addEventListener('touchend', function (e) {
-            const currentTime = new Date().getTime();
-            const tapLength = currentTime - lastTap;
+            const currentTime = new Date().getTime(); const tapLength = currentTime - lastTap;
             if (!isPinching && tapLength < 300 && tapLength > 0 && e.touches.length === 0) {
-                e.preventDefault();
-                fullscreenImg.style.transition = 'transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+                e.preventDefault(); fullscreenImg.style.transition = 'transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
                 if (state.scale > 1) resetZoom(); else { state.scale = 2; state.pointX = 0; state.pointY = 0; updateTransform(); }
             }
             if (e.touches.length === 0) {
-                state.panning = false;
-                fullscreenImg.style.transition = 'transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+                state.panning = false; fullscreenImg.style.transition = 'transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
                 if (state.scale < 1) resetZoom();
-                
-                // YENİ EKLENEN: Swipe kontrolü (Slide yaparak resim değiştirme)
                 if (!isPinching && state.scale === 1) {
-                    const swipeEndX = e.changedTouches[0].clientX;
-                    const diff = swipeStartX - swipeEndX;
-                    
-                    // 50px'den fazla kaydırma yapılırsa tetikle
+                    const swipeEndX = e.changedTouches[0].clientX; const diff = swipeStartX - swipeEndX;
                     if (Math.abs(diff) > 50) {
-                         if (diff > 0) {
-                             // Sola kaydır -> SONRAKİ
-                             if (fsImages.length > 1) {
-                                 fsIndex = (fsIndex + 1) % fsImages.length;
-                                 updateFullscreenView();
-                                 resetZoom();
-                             }
-                         } else {
-                             // Sağa kaydır -> ÖNCEKİ
-                             if (fsImages.length > 1) {
-                                 fsIndex = (fsIndex - 1 + fsImages.length) % fsImages.length;
-                                 updateFullscreenView();
-                                 resetZoom();
-                             }
-                         }
+                         if (diff > 0) { if (fsImages.length > 1) { fsIndex = (fsIndex + 1) % fsImages.length; updateFullscreenView(); resetZoom(); } } 
+                         else { if (fsImages.length > 1) { fsIndex = (fsIndex - 1 + fsImages.length) % fsImages.length; updateFullscreenView(); resetZoom(); } }
                     }
                 }
-                
                 if (isPinching) { isPinching = false; return; }
             }
             lastTap = currentTime;
@@ -847,11 +1112,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 initialPinchCenter = { x: (e.touches[0].pageX + e.touches[1].pageX) / 2, y: (e.touches[0].pageY + e.touches[1].pageY) / 2 };
                 initialPoint = { x: state.pointX, y: state.pointY };
             } else if (e.touches.length === 1) {
-                state.panning = true;
-                state.startX = e.touches[0].pageX - state.pointX;
-                state.startY = e.touches[0].pageY - state.pointY;
-                
-                // YENİ EKLENEN: Swipe başlangıcı kaydet
+                state.panning = true; state.startX = e.touches[0].pageX - state.pointX; state.startY = e.touches[0].pageY - state.pointY;
                 swipeStartX = e.touches[0].clientX;
             }
         });
@@ -863,27 +1124,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 const currentCenter = { x: (e.touches[0].pageX + e.touches[1].pageX) / 2, y: (e.touches[0].pageY + e.touches[1].pageY) / 2 };
                 if (initialPinchDistance > 0) {
                     const diff = currentDistance / initialPinchDistance;
-                    let newScale = initialScale * diff;
-                    newScale = Math.min(Math.max(minScale, newScale), maxScale);
-                    state.scale = newScale;
-                    const dx = currentCenter.x - initialPinchCenter.x;
-                    const dy = currentCenter.y - initialPinchCenter.y;
-                    state.pointX = initialPoint.x + dx;
-                    state.pointY = initialPoint.y + dy;
-                    updateTransform();
+                    let newScale = initialScale * diff; newScale = Math.min(Math.max(minScale, newScale), maxScale); state.scale = newScale;
+                    const dx = currentCenter.x - initialPinchCenter.x; const dy = currentCenter.y - initialPinchCenter.y;
+                    state.pointX = initialPoint.x + dx; state.pointY = initialPoint.y + dy; updateTransform();
                 }
             } else if (e.touches.length === 1 && state.panning && state.scale > 1) {
-                state.pointX = e.touches[0].pageX - state.startX;
-                state.pointY = e.touches[0].pageY - state.startY;
-                updateTransform();
+                state.pointX = e.touches[0].pageX - state.startX; state.pointY = e.touches[0].pageY - state.startY; updateTransform();
             }
         });
 
         fullscreenContainer.addEventListener('wheel', (e) => {
             e.preventDefault(); fullscreenImg.style.transition = 'none';
             const zoomFactor = 0.1; const direction = e.deltaY < 0 ? 1 : -1;
-            let newScale = state.scale + (direction * zoomFactor * state.scale);
-            newScale = Math.min(Math.max(minScale, newScale), maxScale);
+            let newScale = state.scale + (direction * zoomFactor * state.scale); newScale = Math.min(Math.max(minScale, newScale), maxScale);
             if (newScale <= 1) resetZoom(); else { state.scale = newScale; updateTransform(); }
         }, { passive: false });
 
@@ -896,30 +1149,18 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
 
-        fullscreenContainer.addEventListener('mousemove', (e) => {
-            if (isMouseDown && state.scale > 1) {
-                e.preventDefault(); state.pointX = e.clientX - state.startX; state.pointY = e.clientY - state.startY; updateTransform();
-            }
-        });
+        fullscreenContainer.addEventListener('mousemove', (e) => { if (isMouseDown && state.scale > 1) { e.preventDefault(); state.pointX = e.clientX - state.startX; state.pointY = e.clientY - state.startY; updateTransform(); } });
 
-        const stopDrag = () => {
-            if (isMouseDown) {
-                isMouseDown = false; fullscreenContainer.style.cursor = 'zoom-out';
-                fullscreenImg.style.transition = 'transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
-            }
-        };
+        const stopDrag = () => { if (isMouseDown) { isMouseDown = false; fullscreenContainer.style.cursor = 'zoom-out'; fullscreenImg.style.transition = 'transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94)'; } };
         fullscreenContainer.addEventListener('mouseup', stopDrag);
         fullscreenContainer.addEventListener('mouseleave', stopDrag);
     }
     
-    // --- GLOBAL: Tam Ekran Fonksiyonunu Dışa Aç ---
     window.openFullscreenImage = openFullscreenImage;
-
     window.loadImageFeed = initFeed;
     initFeed();
 });
 
-// --- GLOBAL SLIDER FONKSİYONU ---
 window.setupPostSlider = function(container) {
     if (!container) return;
     const track = container.querySelector('.slider-track');
@@ -930,60 +1171,26 @@ window.setupPostSlider = function(container) {
     
     if(!track || slides.length === 0) return;
 
-    let currentIndex = 0;
-    const totalSlides = slides.length;
-    let startX = 0;
-    let isDragging = false;
+    let currentIndex = 0; const totalSlides = slides.length;
+    let startX = 0; let isDragging = false;
 
-    // YENİ EKLENEN KISIM: Tüm resimlerin listesini al
-    const allImagesSrc = Array.from(slides).map(s => {
-        const img = s.querySelector('img');
-        return img ? img.src : null;
-    }).filter(src => src !== null);
+    const allImagesSrc = Array.from(slides).map(s => { const img = s.querySelector('img'); return img ? img.src : null; }).filter(src => src !== null);
 
     function updateSlider() {
         track.style.transform = `translateX(-${currentIndex * 100}%)`;
-        dots.forEach((dot, index) => {
-            if(dot) dot.classList.toggle('active', index === currentIndex);
-        });
+        dots.forEach((dot, index) => { if(dot) dot.classList.toggle('active', index === currentIndex); });
     }
 
-    // Ok Tıklamaları
-    if(prevBtn) prevBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (currentIndex > 0) currentIndex--;
-        updateSlider();
-    });
-    
-    if(nextBtn) nextBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (currentIndex < totalSlides - 1) currentIndex++;
-        updateSlider();
-    });
+    if(prevBtn) prevBtn.addEventListener('click', (e) => { e.stopPropagation(); if (currentIndex > 0) currentIndex--; updateSlider(); });
+    if(nextBtn) nextBtn.addEventListener('click', (e) => { e.stopPropagation(); if (currentIndex < totalSlides - 1) currentIndex++; updateSlider(); });
 
-    // Dokunmatik Kaydırma (Swipe)
-    container.addEventListener('touchstart', (e) => {
-        startX = e.touches[0].clientX;
-        isDragging = true;
-    }, { passive: true });
-
+    container.addEventListener('touchstart', (e) => { startX = e.touches[0].clientX; isDragging = true; }, { passive: true });
     container.addEventListener('touchend', (e) => {
-        if (!isDragging) return;
-        const endX = e.changedTouches[0].clientX;
-        const diff = startX - endX;
-
-        if (Math.abs(diff) > 50) { 
-            if (diff > 0 && currentIndex < totalSlides - 1) {
-                currentIndex++; 
-            } else if (diff < 0 && currentIndex > 0) {
-                currentIndex--; 
-            }
-        }
-        updateSlider();
-        isDragging = false;
+        if (!isDragging) return; const endX = e.changedTouches[0].clientX; const diff = startX - endX;
+        if (Math.abs(diff) > 50) { if (diff > 0 && currentIndex < totalSlides - 1) { currentIndex++; } else if (diff < 0 && currentIndex > 0) { currentIndex--; } }
+        updateSlider(); isDragging = false;
     });
     
-    // GÜNCELLENEN KISIM: Resme tıklayınca tüm listeyi gönder
     slides.forEach((slide, index) => {
         const img = slide.querySelector('img');
         if(img) {
@@ -992,5 +1199,182 @@ window.setupPostSlider = function(container) {
                 if(window.openFullscreenImage) window.openFullscreenImage(allImagesSrc, index);
             });
         }
+    });
+};
+
+/* --- GLOBAL NOTIFICATION SYSTEM --- */
+window.timeAgoGlobal = function(date) {
+    const s = Math.floor((new Date() - new Date(date)) / 1000);
+    if (s < 60) return "Az önce";
+    if (s < 3600) return Math.floor(s/60) + "dk";
+    if (s < 86400) return Math.floor(s/3600) + "sa";
+    return Math.floor(s/86400) + "g";
+};
+
+window.sendNotification = async function(userId, type, postId = null, postImage = null, text = null) {
+    const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+    if (!currentUser || currentUser.uid === userId) return; 
+
+    try {
+        await window.db.collection('notifications').add({
+            userId: userId,
+            senderId: currentUser.uid,
+            senderUsername: currentUser.username,
+            senderPic: currentUser.profilePic || null,
+            type: type,
+            postId: postId,
+            postImage: postImage,
+            text: text,
+            timestamp: new Date().toISOString(),
+            isRead: false
+        });
+    } catch(e) { console.error("Bildirim gönderilemedi:", e); }
+};
+
+window.initNotifications = function() {
+    const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+    if (!currentUser) return;
+
+    if (window.notificationsUnsubscribe) window.notificationsUnsubscribe();
+    
+    window.notificationsUnsubscribe = window.db.collection('notifications')
+        .where('userId', '==', currentUser.uid)
+        .onSnapshot(snapshot => {
+            let hasUnread = false;
+            let notifs = [];
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                data.id = doc.id;
+                notifs.push(data);
+                if (!data.isRead) hasUnread = true;
+            });
+            
+            const badge = document.getElementById('nav-notif-badge');
+            if (badge) badge.style.display = hasUnread ? 'block' : 'none';
+            
+            window.currentNotifications = notifs.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
+            
+            const notifModal = document.getElementById('notifications-modal');
+            if (notifModal && notifModal.style.display === 'flex') {
+                window.renderNotifications();
+            }
+        });
+};
+
+window.renderNotifications = function() {
+    const list = document.getElementById('notifications-list');
+    if (!list) return;
+    
+    if (!window.currentNotifications || window.currentNotifications.length === 0) {
+        list.innerHTML = '<div style="text-align:center; padding: 20px; color: var(--text-light);">Henüz bildirim yok.</div>';
+        return;
+    }
+
+    list.innerHTML = '';
+    window.currentNotifications.forEach(notif => {
+        const item = document.createElement('div');
+        item.className = `notification-item ${!notif.isRead ? 'unread' : ''}`;
+        
+        const newBadge = !notif.isRead ? `<span class="new-tag">YENİ</span>` : '';
+        const avatar = notif.senderPic ? `url('${notif.senderPic}')` : '';
+        const avatarHtml = avatar ? `<div class="notification-avatar" style="background-image: ${avatar}"></div>` : `<div class="notification-avatar"><i class="fas fa-user" style="color:#999;"></i></div>`;
+        
+        let contentText = '';
+        let actionHtml = '';
+        let rightHtml = '';
+
+        const safeUsername = `<strong class="notif-user-link" data-username="${notif.senderUsername}">@${notif.senderUsername}</strong>`;
+
+        if (notif.type === 'like') {
+            contentText = `${safeUsername} gönderini beğendi.`;
+            if (notif.postImage) rightHtml = `<div class="notif-post-thumbnail" style="background-image: url('${notif.postImage}')"></div>`;
+        } else if (notif.type === 'comment') {
+            contentText = `${safeUsername} gönderine yorum yaptı: "${notif.text || ''}"`;
+            if (notif.postImage) rightHtml = `<div class="notif-post-thumbnail" style="background-image: url('${notif.postImage}')"></div>`;
+        } else if (notif.type === 'follow') {
+            contentText = `${safeUsername} sana odaklanmaya başladı.`;
+        } else if (notif.type === 'follow_request') {
+            contentText = `${safeUsername} seni takip etmek istiyor.`;
+            actionHtml = `
+                <div class="notification-actions">
+                    <button class="notif-btn accept" data-sender="${notif.senderId}" data-notif="${notif.id}">Onayla</button>
+                    <button class="notif-btn reject" data-sender="${notif.senderId}" data-notif="${notif.id}">Reddet</button>
+                </div>`;
+        } else if (notif.type === 'follow_accept') {
+            contentText = `${safeUsername} takip isteğini onayladı.`;
+        }
+
+        item.innerHTML = `
+            ${newBadge}
+            ${avatarHtml}
+            <div class="notification-content">
+                ${contentText}
+                ${actionHtml}
+                <span class="notification-time">${window.timeAgoGlobal ? window.timeAgoGlobal(notif.timestamp) : "Az önce"}</span>
+            </div>
+            ${rightHtml}
+        `;
+
+        item.addEventListener('click', (e) => {
+            if (e.target.classList.contains('notif-btn')) return; 
+            
+            if (e.target.classList.contains('notif-user-link')) {
+                e.stopPropagation();
+                const notifModal = document.getElementById('notifications-modal');
+                if (window.closeModal) window.closeModal(notifModal); else notifModal.style.display = 'none';
+                if (window.openProfileByUsername) window.openProfileByUsername(notif.senderUsername);
+                window.db.collection('notifications').doc(notif.id).update({ isRead: true });
+                return;
+            }
+
+            window.db.collection('notifications').doc(notif.id).update({ isRead: true });
+            
+            if (notif.postId && (notif.type === 'like' || notif.type === 'comment')) {
+                const notifModal = document.getElementById('notifications-modal');
+                if (window.closeModal) window.closeModal(notifModal); else notifModal.style.display = 'none';
+                window.db.collection('posts').doc(notif.postId).get().then(doc => {
+                    if(doc.exists && window.openPostDetail) window.openPostDetail({id: doc.id, ...doc.data()});
+                });
+            } else if (notif.type === 'follow' || notif.type === 'follow_accept') {
+                const notifModal = document.getElementById('notifications-modal');
+                if (window.closeModal) window.closeModal(notifModal); else notifModal.style.display = 'none';
+                if (window.openUserProfile) window.openUserProfile(notif.senderId);
+            }
+        });
+
+        const acceptBtn = item.querySelector('.accept');
+        if (acceptBtn) {
+            acceptBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const senderId = acceptBtn.getAttribute('data-sender');
+                const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+                
+                await window.db.collection('users').doc(currentUser.uid).update({
+                    followers: firebase.firestore.FieldValue.arrayUnion(senderId),
+                    followRequests: firebase.firestore.FieldValue.arrayRemove(senderId)
+                });
+                await window.db.collection('users').doc(senderId).update({
+                    following: firebase.firestore.FieldValue.arrayUnion(currentUser.uid)
+                });
+                
+                await window.db.collection('notifications').doc(notif.id).update({ type: 'follow', isRead: true });
+                window.sendNotification(senderId, 'follow_accept');
+                if (typeof showNotification === 'function') showNotification('İstek onaylandı.', 'success');
+            });
+        }
+
+        const rejectBtn = item.querySelector('.reject');
+        if (rejectBtn) {
+            rejectBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const senderId = rejectBtn.getAttribute('data-sender');
+                const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+                await window.db.collection('users').doc(currentUser.uid).update({ followRequests: firebase.firestore.FieldValue.arrayRemove(senderId) });
+                await window.db.collection('notifications').doc(notif.id).delete();
+                if (typeof showNotification === 'function') showNotification('İstek reddedildi.', 'info');
+            });
+        }
+
+        list.appendChild(item);
     });
 };
