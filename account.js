@@ -1,6 +1,5 @@
-// account.js - GÜVENLİ VE TAM SİLME ÖZELLİKLİ FİNAL VERSİYON + ADMIN YETKİLERİ + REAL-TIME STATS + PREMIUM UPDATE
+// account.js 
 document.addEventListener('DOMContentLoaded', function() {
-    // --- ELEMENTLER ---
     const loginForm = document.getElementById('login-account-form');
     const registerForm = document.getElementById('register-account-form');
     const forgotPasswordForm = document.getElementById('forgot-password-form');
@@ -8,7 +7,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const authLoading = document.getElementById('auth-loading');
     const accountTitle = document.getElementById('account-title');
     
-    // Modal Elementleri
     const discussionModal = document.getElementById('discussion-modal');
     const discussionImageEl = document.getElementById('discussion-image');
     const discussionCaptionEl = document.getElementById('discussion-caption');
@@ -16,14 +14,11 @@ document.addEventListener('DOMContentLoaded', function() {
     
     let currentDetailPostId = null;
     let currentPostData = null; 
+    let currentUserSnapshotUnsubscribe = null;
 
-    // --- CSS YAMASI ---
     const fixModalStyle = document.createElement('style');
     fixModalStyle.textContent = `
-        /* Çift Göz İkonu Hatası Çözümü */
         input[type="password"]::-ms-reveal, input[type="password"]::-ms-clear { display: none !important; }
-        
-        /* Modal ve Hata Stilleri */
         #discussion-modal .discussion-modal-content { display: flex !important; flex-direction: column !important; height: 85vh !important; max-height: 85vh !important; width: 95% !important; max-width: 500px !important; padding: 0 !important; overflow: hidden !important; border-radius: 15px !important; }
         #discussion-modal .modal-header { flex-shrink: 0 !important; z-index: 2 !important; background: var(--surface) !important; }
         #discussion-modal .discussion-image-container { flex-shrink: 0 !important; max-height: 30vh !important; background: #000 !important; display: flex !important; align-items: center !important; justify-content: center !important; }
@@ -32,7 +27,7 @@ document.addEventListener('DOMContentLoaded', function() {
         #discussion-modal .comments-section { flex-grow: 1 !important; overflow-y: auto !important; padding: 10px !important; scroll-behavior: smooth !important; background: var(--surface) !important; display: block !important; }
         #discussion-modal .comments-list { padding-bottom: 10px !important; }
         #discussion-modal .add-comment { flex-shrink: 0 !important; padding: 10px 15px !important; background: var(--surface) !important; border-top: 1px solid var(--border) !important; position: relative !important; z-index: 10 !important; margin-top: auto !important; }
-        #edit-avatar-preview { background-size: cover; background-position: center; background-color: #e1e1e1; color: #999; display: flex; align-items: center; justify-content: center; }
+        #edit-avatar-preview { background-size: cover; background-position: center; background-color: #e1e1e1; color: #999; display: flex; align-items: center; justify-content: center; overflow: hidden; }
         .error-shake { animation: shake 0.4s ease-in-out; }
         @keyframes shake { 0%, 100% { transform: translateX(0); } 20%, 60% { transform: translateX(-5px); border-color: #ff4757; } 40%, 80% { transform: translateX(5px); } }
         .comment-text.collapsed { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; }
@@ -40,6 +35,25 @@ document.addEventListener('DOMContentLoaded', function() {
         .read-more-btn:hover { text-decoration: underline; color: var(--primary); }
     `;
     document.head.appendChild(fixModalStyle);
+
+    // BİLDİRİM MODALI AÇ/KAPAT DİNLEYİCİSİ (KALP İKONU BURADA DİNLENİYOR)
+    const notifBtn = document.getElementById('notifications-nav');
+    const notifModal = document.getElementById('notifications-modal');
+    const closeNotifBtn = document.getElementById('close-notifications');
+
+    if (notifBtn && notifModal) {
+        notifBtn.addEventListener('click', () => {
+            if (window.openModal) window.openModal(notifModal);
+            else { notifModal.style.display = 'flex'; notifModal.setAttribute('aria-hidden', 'false'); }
+            if (window.renderNotifications) window.renderNotifications();
+        });
+    }
+    if (closeNotifBtn && notifModal) {
+        closeNotifBtn.addEventListener('click', () => {
+            if (window.closeModal) window.closeModal(notifModal);
+            else { notifModal.style.display = 'none'; notifModal.setAttribute('aria-hidden', 'true'); }
+        });
+    }
 
     function resetUI() {
         if(loginForm) loginForm.classList.remove('visible-flex');
@@ -58,8 +72,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const registerBtn = document.getElementById('account-register-btn');
     const forgotPasswordBtn = document.getElementById('forgot-password-btn');
     const sendResetBtn = document.getElementById('send-reset-btn');
-    
-    // --- YENİ EKLENEN BUTON SEÇİMİ ---
     const upgradePremiumBtn = document.getElementById('upgrade-premium-btn');
 
     initializeBirthdateSelects();
@@ -67,10 +79,12 @@ document.addEventListener('DOMContentLoaded', function() {
     setupLogoRedirect();
     setupCommentSystem();
     setupProfileEditing();
+    setupAccountSettings();
 
     function hideLoading() { setTimeout(() => { if(authLoading) authLoading.style.display = 'none'; }, 300); }
     
     function timeAgo(date) {
+        if(window.timeAgoGlobal) return window.timeAgoGlobal(date);
         const s = Math.floor((new Date() - new Date(date)) / 1000);
         if (s < 60) return "Az önce";
         if (s < 3600) return Math.floor(s/60) + "dk";
@@ -95,13 +109,100 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    function setupAccountSettings() {
+        const savePasswordBtn = document.getElementById('save-password-btn');
+        const privacySwitch = document.getElementById('privacy-mode-switch');
+
+        if (savePasswordBtn) {
+            savePasswordBtn.addEventListener('click', async () => {
+                const currentPass = document.getElementById('current-password-input').value;
+                const newPass = document.getElementById('new-password-input').value;
+                
+                if(!currentPass || !newPass) {
+                    showNotification('Lütfen tüm alanları doldurun', 'error');
+                    return;
+                }
+                if(newPass.length < 6) {
+                    showNotification('Yeni şifre en az 6 karakter olmalı', 'error');
+                    return;
+                }
+                
+                const user = firebase.auth().currentUser;
+                if (!user) return;
+
+                const cred = firebase.auth.EmailAuthProvider.credential(user.email, currentPass);
+                
+                const origText = savePasswordBtn.textContent;
+                savePasswordBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Güncelleniyor...';
+                savePasswordBtn.disabled = true;
+                
+                showNotification('Şifre güncelleniyor, lütfen bekleyin...', 'info');
+                
+                try {
+                    await user.reauthenticateWithCredential(cred);
+                    await user.updatePassword(newPass);
+                    
+                    showNotification('Şifreniz başarıyla güncellendi!', 'success');
+                    if (typeof closeModal === 'function') closeModal(document.getElementById('change-password-modal'));
+                    
+                    document.getElementById('current-password-input').value = '';
+                    document.getElementById('new-password-input').value = '';
+                } catch (err) {
+                    if(err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password') {
+                        showNotification('Mevcut şifreniz hatalı.', 'error');
+                    } else {
+                        showNotification('Hata: ' + err.message, 'error');
+                    }
+                } finally {
+                    savePasswordBtn.textContent = origText;
+                    savePasswordBtn.disabled = false;
+                }
+            });
+        }
+
+        if (privacySwitch) {
+            privacySwitch.addEventListener('change', async (e) => {
+                const isPrivate = e.target.checked;
+                const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+                
+                if (!currentUser) {
+                    e.target.checked = !isPrivate;
+                    return;
+                }
+                
+                showNotification(isPrivate ? 'Hesabınız Gizli\'ye alındı.' : 'Hesabınız Herkese Açık yapıldı.', 'success');
+
+                try {
+                    await db.collection('users').doc(currentUser.uid).update({ 
+                        isPrivate: isPrivate 
+                    });
+                    
+                    currentUser.isPrivate = isPrivate;
+                    localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                    
+                    const snapshot = await db.collection('posts').where('userId', '==', currentUser.uid).get();
+                    if (!snapshot.empty) {
+                        const batch = db.batch();
+                        snapshot.forEach(doc => {
+                            batch.update(doc.ref, { isPrivate: isPrivate });
+                        });
+                        await batch.commit();
+                    }
+                } catch (err) {
+                    console.error("Gizlilik güncelleme hatası:", err);
+                    showNotification('Ayarlar kaydedilirken hata oluştu.', 'error');
+                    e.target.checked = !isPrivate; 
+                }
+            });
+        }
+    }
+
     function setupEventListeners() {
         document.querySelectorAll('.switch-auth').forEach(btn => { btn.addEventListener('click', handleFormSwitch); });
         if (loginBtn) loginBtn.addEventListener('click', handleLogin);
         if (registerBtn) registerBtn.addEventListener('click', handleRegister);
         if (addNewPostBtn) addNewPostBtn.addEventListener('click', handleAddNewPost);
         
-        // --- PREMIUM BUTONU ETKİLEŞİMİ ---
         if (upgradePremiumBtn) {
             upgradePremiumBtn.addEventListener('click', () => {
                 showNotification('Premium özellikler çok yakında eklenecek! 🚀', 'info');
@@ -112,6 +213,7 @@ document.addEventListener('DOMContentLoaded', function() {
             logoutBtn.addEventListener('click', () => {
                 if (confirm('Çıkış yapmak istiyor musunuz?')) {
                     if (window.accountPostsUnsubscribe) window.accountPostsUnsubscribe();
+                    if (currentUserSnapshotUnsubscribe) currentUserSnapshotUnsubscribe();
                     auth.signOut().then(() => { localStorage.removeItem('currentUser'); window.location.reload(); });
                 }
             });
@@ -162,7 +264,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // --- GÜÇLENDİRİLMİŞ HESAP SİLME FONKSİYONU ---
     async function handleDeleteAccount() {
         if (!confirm('HESABINIZI SİLMEK ÜZERESİNİZ!\n\nBu işlem geri alınamaz. Tüm gönderileriniz, yorumlarınız ve beğenileriniz kalıcı olarak silinecektir. Devam etmek istiyor musunuz?')) return;
         if (!confirm('Son onay: Hesabınızı ve tüm verilerinizi silmek istediğinize emin misiniz?')) return;
@@ -180,6 +281,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         try {
             if (window.accountPostsUnsubscribe) window.accountPostsUnsubscribe();
+            if (currentUserSnapshotUnsubscribe) currentUserSnapshotUnsubscribe();
 
             let currentUsername = null;
             const userDoc = await db.collection('users').doc(user.uid).get();
@@ -234,7 +336,6 @@ document.addEventListener('DOMContentLoaded', function() {
             });
 
             await Promise.all(updatePromises);
-
             await db.collection('users').doc(user.uid).delete();
             await user.delete();
 
@@ -272,7 +373,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const updatePreviewUI = (picData) => {
             if (!previewDiv) return;
-            if (picData) {
+            if (picData && picData.trim() !== "") {
                 previewDiv.style.backgroundImage = `url('${picData}')`;
                 previewDiv.style.backgroundColor = 'transparent';
                 previewDiv.innerHTML = '';
@@ -355,6 +456,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 saveBtn.textContent = 'Veriler güncelleniyor...';
                 saveBtn.disabled = true;
 
+                showNotification('Profil güncelleniyor...', 'info');
+
                 let updateData = { username: newUsername, fullname: newFullname, birthdate: newBirthdate, profilePic: activeProfilePicData };
 
                 try {
@@ -417,7 +520,6 @@ document.addEventListener('DOMContentLoaded', function() {
     function renderAccountCommentsHTML(comments, currentUser) {
         if (!comments || comments.length === 0) return '<div class="empty-comments-msg" style="text-align:center; padding:20px; color:#8e8e8e;">Henüz yorum yok.</div>';
         
-        // --- YÖNETİCİ KONTROLÜ ---
         const isAdmin = currentUser && currentUser.role === 'admin';
 
         return comments.map(c => {
@@ -426,9 +528,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const textClass = isLongText ? 'comment-text collapsed' : 'comment-text';
             const readMoreBtn = isLongText ? '<button class="read-more-btn">Devamını oku</button>' : '';
             
-            // Silme Yetkisi: Kendi yorumuysa VEYA Yöneticiyse
             const canDelete = isMine || isAdmin;
-            
             const deleteBtnHtml = canDelete ? `<button class="comment-delete-btn" data-id="${c.id}" style="position: absolute; top: 3px; right: 3px; border: none; background: none; color: #8e8e8e; cursor: pointer; font-size: 10px;"><i class="fas fa-trash"></i></button>` : '';
             
             return `
@@ -469,6 +569,9 @@ document.addEventListener('DOMContentLoaded', function() {
                         const scrollContainer = document.querySelector('#discussion-modal .comments-section');
                         if(scrollContainer) setTimeout(() => { scrollContainer.scrollTop = scrollContainer.scrollHeight; }, 50);
                     }
+                    if(currentPostData.userId !== user.uid && window.sendNotification) {
+                        window.sendNotification(currentPostData.userId, 'comment', currentDetailPostId, (currentPostData.images && currentPostData.images[0]) || currentPostData.image || null, text);
+                    }
                 }
             }).catch(err => { console.error("Yorum hatası:", err); alert("Yorum gönderilemedi."); });
         };
@@ -476,6 +579,12 @@ document.addEventListener('DOMContentLoaded', function() {
         const commentsList = document.getElementById('comments-list');
         if (commentsList) {
             commentsList.addEventListener('click', function(e) {
+                if (e.target.classList.contains('comment-user')) {
+                    e.preventDefault();
+                    if(window.openProfileByUsername) window.openProfileByUsername(e.target.textContent.trim());
+                    return;
+                }
+
                 if (e.target.classList.contains('read-more-btn')) {
                     e.preventDefault();
                     const textDiv = e.target.previousElementSibling; 
@@ -509,10 +618,14 @@ document.addEventListener('DOMContentLoaded', function() {
         window.auth.onAuthStateChanged((user) => {
             if (user) {
                 db.collection("users").doc(user.uid).get().then((doc) => {
-                    const userData = doc.exists ? doc.data() : { username: user.email.split('@')[0], email: user.email, uid: user.uid };
+                    const userData = doc.exists ? doc.data() : { username: user.email.split('@')[0], email: user.email, uid: user.uid, isPrivate: false, followers: [], following: [], followRequests: [] };
                     userData.uid = user.uid;
                     localStorage.setItem('currentUser', JSON.stringify(userData));
                     showAccountInfo(userData);
+                    
+                    // BİLDİRİM DİNLEYİCİSİNİ BAŞLAT
+                    if (typeof window.initNotifications === 'function') window.initNotifications();
+
                     hideLoading();
                 }).catch(() => { showLoginForm(); hideLoading(); });
             } else { localStorage.removeItem('currentUser'); showLoginForm(); hideLoading(); }
@@ -556,13 +669,57 @@ document.addEventListener('DOMContentLoaded', function() {
         const avatarEl = document.getElementById('account-avatar');
         if (avatarEl) {
             avatarEl.style.display = 'flex'; avatarEl.style.alignItems = 'center'; avatarEl.style.justifyContent = 'center';
-            if (user.profilePic) { avatarEl.style.background = `url('${user.profilePic}') center/cover no-repeat`; avatarEl.style.border = '2px solid rgba(255,255,255,0.8)'; avatarEl.innerHTML = ''; }
+            if (user.profilePic && user.profilePic.trim() !== "") { avatarEl.style.background = `url('${user.profilePic}') center/cover no-repeat`; avatarEl.style.border = '2px solid rgba(255,255,255,0.8)'; avatarEl.innerHTML = ''; }
             else { avatarEl.style.background = '#e1e1e1'; avatarEl.style.border = '2px solid rgba(255,255,255,0.8)'; avatarEl.innerHTML = '<i class="fas fa-user" style="font-size: 30px; color: #999;"></i>'; }
         }
+
+        if(currentUserSnapshotUnsubscribe) currentUserSnapshotUnsubscribe();
+        currentUserSnapshotUnsubscribe = db.collection('users').doc(user.uid).onSnapshot(doc => {
+            if(doc.exists) {
+                const data = doc.data();
+                const followersCount = data.followers ? data.followers.length : 0;
+                const followingCount = data.following ? data.following.length : 0;
+                
+                const elFollowers = document.getElementById('account-followers');
+                const elFollowing = document.getElementById('account-following');
+                
+                if(elFollowers) {
+                    elFollowers.textContent = followersCount;
+                    const statDiv = elFollowers.closest('.account-stat');
+                    if (statDiv) {
+                        statDiv.style.cursor = 'pointer';
+                        statDiv.onclick = () => {
+                            if (typeof window.showUserListModal === 'function') {
+                                window.showUserListModal('Kitleniz (' + followersCount + ')', data.followers || []);
+                            }
+                        };
+                    }
+                }
+                if(elFollowing) {
+                    elFollowing.textContent = followingCount;
+                    const statDiv = elFollowing.closest('.account-stat');
+                    if (statDiv) {
+                        statDiv.style.cursor = 'pointer';
+                        statDiv.onclick = () => {
+                            if (typeof window.showUserListModal === 'function') {
+                                window.showUserListModal('Odaklandıklarınız (' + followingCount + ')', data.following || []);
+                            }
+                        };
+                    }
+                }
+                
+                const localUser = JSON.parse(localStorage.getItem('currentUser'));
+                if(localUser) {
+                    localUser.followers = data.followers || [];
+                    localUser.following = data.following || [];
+                    localStorage.setItem('currentUser', JSON.stringify(localUser));
+                }
+            }
+        });
+
         loadAccountPosts(user.username);
     }
 
-    // --- ANLIK VERİ AKIŞI GÜNCELLEMESİ ---
     function loadAccountPosts(username) {
         const grid = document.getElementById('account-posts-grid');
         if (!grid) return;
@@ -667,7 +824,18 @@ document.addEventListener('DOMContentLoaded', function() {
             }, 100);
 
         } else { 
-            discussionImageEl.innerHTML = `<img src="${displayImage}" style="width:100%; height:auto; display:block;" alt="Post">`; 
+            discussionImageEl.innerHTML = `<img id="single-discussion-img" src="${displayImage}" style="width:100%; height:auto; display:block; cursor:zoom-in;" alt="Post">`; 
+            
+            setTimeout(() => {
+                const singleImg = document.getElementById('single-discussion-img');
+                if(singleImg) {
+                    singleImg.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        if(window.openFullscreenImage) window.openFullscreenImage(displayImage);
+                    });
+                }
+            }, 50);
         }
 
         if (discussionCaptionEl) discussionCaptionEl.innerHTML = `<strong>${post.username}</strong> ${post.caption || ''}`;
@@ -683,6 +851,8 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (window.openModal) window.openModal(discussionModal); else discussionModal.style.display = 'flex';
     }
+    
+    window.openPostDetail = openPostDetail; 
 
     function deletePost(postId) {
         if (confirm("Silmek istediğinize emin misiniz?")) {
@@ -785,24 +955,17 @@ document.addEventListener('DOMContentLoaded', function() {
             if (errorEl) {
                 errorEl.textContent = msg;
                 errorEl.style.display = 'flex';
-                
                 if(emailInput) {
                     emailInput.classList.add('error-shake');
                     setTimeout(() => emailInput.classList.remove('error-shake'), 500);
                 }
-            } else {
-                showNotification(msg, 'error');
-            }
+            } else { showNotification(msg, 'error'); }
         };
 
-        if (!email) {
-            showError('Lütfen e-posta adresinizi girin.');
-            return;
-        }
+        if (!email) { showError('Lütfen e-posta adresinizi girin.'); return; }
 
         const btn = document.getElementById('send-reset-btn');
         const originalText = btn.innerHTML;
-        
         btn.innerHTML = 'Kontrol ediliyor...';
         btn.disabled = true;
         if(errorEl) errorEl.style.display = 'none';
@@ -810,12 +973,9 @@ document.addEventListener('DOMContentLoaded', function() {
         db.collection('users').where('email', '==', email).get()
             .then(snapshot => {
                 if (snapshot.empty) {
-                    showError('Bu e-posta adresiyle kayıtlı bir hesap bulunamadı.');
-                    btn.innerHTML = originalText;
-                    btn.disabled = false;
-                    return;
+                    showError('Bu e-posta adresiyle kayıtlı hesap bulunamadı.');
+                    btn.innerHTML = originalText; btn.disabled = false; return;
                 }
-
                 btn.innerHTML = 'Gönderiliyor...';
                 auth.sendPasswordResetEmail(email)
                     .then(() => {
@@ -828,20 +988,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     })
                     .catch((error) => {
                         let msg = "Bir hata oluştu.";
-                        if (error.code === 'auth/invalid-email') msg = "Geçersiz e-posta adresi formatı.";
+                        if (error.code === 'auth/invalid-email') msg = "Geçersiz e-posta formatı.";
                         showError(msg);
                     })
-                    .finally(() => {
-                        btn.innerHTML = originalText;
-                        btn.disabled = false;
-                    });
-            })
-            .catch(error => {
-                console.error("Hata:", error);
-                showError('Bağlantı hatası, lütfen tekrar deneyin.');
-                btn.innerHTML = originalText;
-                btn.disabled = false;
-            });
+                    .finally(() => { btn.innerHTML = originalText; btn.disabled = false; });
+            }).catch(error => { showError('Bağlantı hatası.'); btn.innerHTML = originalText; btn.disabled = false; });
     }
 
     function handleRegister() {
@@ -852,41 +1003,25 @@ document.addEventListener('DOMContentLoaded', function() {
         let errorBox = document.getElementById('register-error-msg');
         if(errorBox) errorBox.style.display = 'none';
 
-        if (!e || !p || !u) {
-            showRegisterError('Lütfen tüm alanları doldurun.');
-            return;
-        }
+        if (!e || !p || !u) { showRegisterError('Lütfen tüm alanları doldurun.'); return; }
 
         const btn = document.getElementById('account-register-btn');
         const originalText = btn.innerHTML;
-        btn.innerHTML = 'Kayıt Olunuyor...';
-        btn.disabled = true;
+        btn.innerHTML = 'Kayıt Olunuyor...'; btn.disabled = true;
 
         auth.createUserWithEmailAndPassword(e, p).then((c) => { 
             return db.collection("users").doc(c.user.uid).set({ 
-                username: u, 
-                email: e, 
-                uid: c.user.uid, 
-                joinDate: new Date().toISOString() 
+                username: u, email: e, uid: c.user.uid, 
+                joinDate: new Date().toISOString(),
+                followers: [], following: [],
+                isPrivate: false 
             }); 
-        })
-        .then(() => {
-        })
-        .catch(err => {
-            btn.innerHTML = originalText;
-            btn.disabled = false;
-
+        }).catch(err => {
+            btn.innerHTML = originalText; btn.disabled = false;
             let msg = "Kayıt işlemi başarısız.";
-            if (err.code === 'auth/email-already-in-use') {
-                msg = "Bu e-posta adresi zaten kullanımda. Lütfen giriş yapın.";
-            } else if (err.code === 'auth/weak-password') {
-                msg = "Şifre çok zayıf (en az 6 karakter olmalı).";
-            } else if (err.code === 'auth/invalid-email') {
-                msg = "Geçersiz e-posta adresi formatı.";
-            } else if (err.code === 'auth/operation-not-allowed') {
-                msg = "Kayıt işlemi şu an kapalı.";
-            }
-
+            if (err.code === 'auth/email-already-in-use') msg = "E-posta kullanımda.";
+            else if (err.code === 'auth/weak-password') msg = "Şifre çok zayıf (en az 6 karakter).";
+            else if (err.code === 'auth/invalid-email') msg = "Geçersiz e-posta formatı.";
             showRegisterError(msg);
         });
     }
@@ -895,20 +1030,12 @@ document.addEventListener('DOMContentLoaded', function() {
         let errorBox = document.getElementById('register-error-msg');
         if (!errorBox) {
             errorBox = document.createElement('div');
-            errorBox.id = 'register-error-msg';
-            errorBox.className = 'error-message';
-            errorBox.style.display = 'none';
+            errorBox.id = 'register-error-msg'; errorBox.className = 'error-message'; errorBox.style.display = 'none';
             const ageWarning = document.getElementById('age-warning');
-            if (ageWarning) {
-                ageWarning.parentNode.insertBefore(errorBox, ageWarning.nextSibling);
-            } else {
-                const form = document.getElementById('register-account-form');
-                form.insertBefore(errorBox, form.firstChild);
-            }
+            if (ageWarning) ageWarning.parentNode.insertBefore(errorBox, ageWarning.nextSibling);
+            else { const form = document.getElementById('register-account-form'); form.insertBefore(errorBox, form.firstChild); }
         }
-        
-        errorBox.textContent = msg;
-        errorBox.style.display = 'flex';
+        errorBox.textContent = msg; errorBox.style.display = 'flex';
         errorBox.classList.add('error-shake');
         setTimeout(() => errorBox.classList.remove('error-shake'), 500);
     }
